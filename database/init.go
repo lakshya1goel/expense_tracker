@@ -7,7 +7,7 @@ import (
 )
 
 func InitDB() error {
-	if DB == nil {
+	if Db == nil {
 		return fmt.Errorf("database connection not established. Call ConnectDb first")
 	}
 
@@ -20,7 +20,7 @@ func InitDB() error {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
 	`
-	_, err := DB.Exec(createTableQuery)
+	_, err := Db.Exec(createTableQuery)
 	if err != nil {
 		return fmt.Errorf("error creating expenses table: %v", err)
 	}

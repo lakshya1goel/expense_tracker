@@ -26,7 +26,7 @@ func CreateExpense(c *gin.Context) {
 	var response dto.ExpenseResponseDto
 	var createdAt time.Time
 
-	err := database.DB.QueryRow(
+	err := database.Db.QueryRow(
 		query,
 		request.Title,
 		request.Description,
