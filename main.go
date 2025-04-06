@@ -1,22 +1,22 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/lakshya1goel/expense_tracker/database"
+	"github.com/lakshya1goel/expense_tracker/routes"
 )
 
-
 func main() {
-
 	database.ConnectDb()
+	log.Fatal(database.InitDB())
+	
+	router := gin.Default()
+	api := router.Group("/api")
+	{
+		routes.ExpenseRoutes(api)
+	}
 
-	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Hello, World!")
-	})
-
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	log.Fatal(router.Run(":8000"))
 }
