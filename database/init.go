@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 
+	"github.com/lakshya1goel/expense_tracker/models"
 	_ "github.com/lib/pq"
 )
 
@@ -10,17 +11,7 @@ func InitDB() error {
 	if Db == nil {
 		return fmt.Errorf("database connection not established. Call ConnectDb first")
 	}
-
-	createTableQuery := `
-		CREATE TABLE IF NOT EXISTS expenses (
-			id SERIAL PRIMARY KEY,
-			title VARCHAR(255) NOT NULL,
-			description TEXT,
-			amount INTEGER NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`
-	_, err := Db.Exec(createTableQuery)
+	err := Db.AutoMigrate(&models.Expense{})
 	if err != nil {
 		return fmt.Errorf("error creating expenses table: %v", err)
 	}

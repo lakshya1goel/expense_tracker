@@ -1,27 +1,22 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
 
 	_ "github.com/lib/pq"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-var Db *sql.DB
+var Db *gorm.DB
 
 func ConnectDb() {
-	var err error
-	dbInfo := fmt.Sprintf("host=localhost port=5432 user=%s password=%s dbname=%s sslmode=disable", "postgres", "postgres", "expense_tracker")
-	Db, err = sql.Open("postgres", dbInfo)
-	if err != nil {
-		panic(err)
+	configData := fmt.Sprintf("host=localhost port=5432 user=%s password=%s dbname=%s sslmode=disable", "postgres", "postgres", "expense_tracker")
+	var dbErr error
+	Db, dbErr = gorm.Open(postgres.Open(configData), &gorm.Config{})
+	if dbErr != nil {
+		panic("Error connecting to database: " + dbErr.Error())
 	}
 
-	err = Db.Ping()
-	if err != nil {
-		panic("failed to ping database: " + err.Error())
-	}
-
-	InitDB()
-	fmt.Println("Connected to database")
+	fmt.Println("\x1b[32m...............Database connected..................\x1b[0m")
 }
