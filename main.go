@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
 	"github.com/lakshya1goel/expense_tracker/database"
 	"github.com/lakshya1goel/expense_tracker/routes"
@@ -21,7 +19,5 @@ func main() {
 		routes.ExpenseRoutes(api)
 	}
 
-	if err := router.Run(":8000"); err != nil {
-		log.Fatal(err)
-	}
+	router.Run(":8000")
 }
