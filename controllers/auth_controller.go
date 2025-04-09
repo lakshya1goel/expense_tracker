@@ -8,6 +8,7 @@ import (
 	"github.com/lakshya1goel/expense_tracker/database"
 	"github.com/lakshya1goel/expense_tracker/dto"
 	"github.com/lakshya1goel/expense_tracker/models"
+	"github.com/lakshya1goel/expense_tracker/services"
 	"github.com/lakshya1goel/expense_tracker/utils"
 )
 
@@ -109,4 +110,46 @@ func Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "User logged in successfully", "data": response})
+}
+
+func SendOtp(c *gin.Context) {
+	var request dto.SendOtpDto
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	otp := utils.GenerateOtp(6)
+	services.SendMail(request.Email, "OTP for email verification", otp)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully", "data": otp})
+}
+
+func VerifyOtp(c *gin.Context) {
+	var request dto.VerifyOtpDto
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	user := models.User{
+		Email: request.Email,
+	}
+
+	result := database.Db.Where("email = ?", request.Email).First(&user)
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+		return
+	}
+
+	if user.Otp != request.Otp {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Invalid OTP"})
+		return
+	}
+
+	user.IsVerified = true
+	database.Db.Save(&user)
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified successfully"})
 }
