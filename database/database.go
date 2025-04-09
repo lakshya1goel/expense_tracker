@@ -19,4 +19,6 @@ func ConnectDb() {
 	}
 
 	fmt.Println("\x1b[32m...............Database connected..................\x1b[0m")
+
+	InitDB()
 }

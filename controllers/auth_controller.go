@@ -50,17 +50,6 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	user.AccessToken = accessToken
-	user.RefreshToken = refreshToken
-	user.AccessTokenEx = accessTokenExp
-	user.RefreshTokenEx = refreshTokenExp
-
-	result = database.Db.Save(&user)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update user tokens " + result.Error.Error()})
-		return
-	}
-
 	response := dto.UserResponseDto{
 		ID:             user.ID,
 		Email:          user.Email,
@@ -74,5 +63,50 @@ func Register(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
+	var request dto.LoginDto
 
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	user := models.User{
+		Email: request.Email,
+	}
+
+	result := database.Db.Where("email = ?", request.Email).First(&user)
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+		return
+	}
+
+	if !utils.VerifyPasswordHash(user.Password, request.Password) {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Invalid password"})
+		return
+	}
+
+	accessTokenExp := time.Now().Add(time.Hour * 24).Unix()
+	accessToken, err := utils.GenerateToken(user.ID, accessTokenExp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate access token " + err.Error()})
+		return
+	}
+
+	refreshTokenExp := time.Now().Add(time.Hour * 24 * 30).Unix()
+	refreshToken, err := utils.GenerateToken(user.ID, refreshTokenExp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate refresh token " + err.Error()})
+		return
+	}
+
+	response := dto.UserResponseDto{
+		ID:             user.ID,
+		Email:          user.Email,
+		AccessToken:    accessToken,
+		AccessTokenEx:  accessTokenExp,
+		RefreshToken:   refreshToken,
+		RefreshTokenEx: refreshTokenExp,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "User logged in successfully", "data": response})
 }
