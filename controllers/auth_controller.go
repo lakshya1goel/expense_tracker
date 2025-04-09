@@ -1,0 +1,78 @@
+package controllers
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/lakshya1goel/expense_tracker/database"
+	"github.com/lakshya1goel/expense_tracker/dto"
+	"github.com/lakshya1goel/expense_tracker/models"
+	"github.com/lakshya1goel/expense_tracker/utils"
+)
+
+func Register(c *gin.Context) {
+	var request dto.RegisterDto
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	hashedPassword, err := utils.HashPassword(request.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to hash password " + err.Error()})
+		return
+	}
+
+	user := models.User{
+		Email:    request.Email,
+		Password: hashedPassword,
+	}
+
+	result := database.Db.Create(&user)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create user " + result.Error.Error()})
+		return
+	}
+
+	accessTokenExp := time.Now().Add(time.Hour * 24).Unix()
+	accessToken, err := utils.GenerateToken(user.ID, accessTokenExp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate access token " + err.Error()})
+		return
+	}
+
+	refreshTokenExp := time.Now().Add(time.Hour * 24 * 30).Unix()
+	refreshToken, err := utils.GenerateToken(user.ID, refreshTokenExp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate refresh token " + err.Error()})
+		return
+	}
+
+	user.AccessToken = accessToken
+	user.RefreshToken = refreshToken
+	user.AccessTokenEx = accessTokenExp
+	user.RefreshTokenEx = refreshTokenExp
+
+	result = database.Db.Save(&user)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update user tokens " + result.Error.Error()})
+		return
+	}
+
+	response := dto.UserResponseDto{
+		ID:             user.ID,
+		Email:          user.Email,
+		AccessToken:    accessToken,
+		AccessTokenEx:  accessTokenExp,
+		RefreshToken:   refreshToken,
+		RefreshTokenEx: refreshTokenExp,
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created successfully", "data": response})
+}
+
+func Login(c *gin.Context) {
+
+}

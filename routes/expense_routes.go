@@ -6,11 +6,11 @@ import (
 )
 
 func ExpenseRoutes(router *gin.RouterGroup) {
-	expense := router.Group("/expenses")
+	expenseRouter := router.Group("/expenses")
 	{
-		expense.POST("/", controllers.CreateExpense)
-		expense.GET("/", controllers.GetExpenses)
-		expense.DELETE("/:id", controllers.DeleteExpense)
-		expense.PUT("/:id", controllers.UpdateExpense)
+		expenseRouter.POST("/", controllers.CreateExpense)
+		expenseRouter.GET("/", controllers.GetExpenses)
+		expenseRouter.DELETE("/:id", controllers.DeleteExpense)
+		expenseRouter.PUT("/:id", controllers.UpdateExpense)
 	}
 }

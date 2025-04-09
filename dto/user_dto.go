@@ -1,9 +1,18 @@
-package models
+package dto
 
-type User struct {
+type RegisterDto struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginDto struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type UserResponseDto struct {
 	ID            uint   `json:"id"`
 	Email         string `json:"email"`
-	Password      string `json:"password"`
 	AccessToken   string `json:"access_token"`
 	RefreshToken  string `json:"refresh_token"`
 	AccessTokenEx int64  `json:"access_token_exp"`

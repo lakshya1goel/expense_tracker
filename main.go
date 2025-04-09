@@ -9,14 +9,11 @@ import (
 func main() {
 	database.ConnectDb()
 
-	// if err := database.InitDB(); err != nil {
-	// 	log.Fatal(err)
-	// }
-
 	router := gin.Default()
-	api := router.Group("/api")
+	apiRouter := router.Group("/api")
 	{
-		routes.ExpenseRoutes(api)
+		routes.ExpenseRoutes(apiRouter)
+		routes.AuthRoutes(apiRouter)
 	}
 
 	router.Run(":8000")
