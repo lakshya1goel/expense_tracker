@@ -18,3 +18,8 @@ func main() {
 
 	router.Run(":8000")
 }
+
+//TODO:
+//1. resend otp rate limit
+//2. resend otp after 5 minutes
+//3. delete unverified user after 24 hours

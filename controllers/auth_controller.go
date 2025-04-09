@@ -31,36 +31,28 @@ func Register(c *gin.Context) {
 		Password: hashedPassword,
 	}
 
-	result := database.Db.Create(&user)
+	result := database.Db.Where("email = ?", request.Email).First(&user)
+	if result.Error == nil && user.IsVerified {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "User already exists"})
+		return
+	}
+
+	result = database.Db.Create(&user)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create user " + result.Error.Error()})
 		return
 	}
 
-	accessTokenExp := time.Now().Add(time.Hour * 24).Unix()
-	accessToken, err := utils.GenerateToken(user.ID, accessTokenExp)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate access token " + err.Error()})
-		return
-	}
-
-	refreshTokenExp := time.Now().Add(time.Hour * 24 * 30).Unix()
-	refreshToken, err := utils.GenerateToken(user.ID, refreshTokenExp)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate refresh token " + err.Error()})
-		return
-	}
+	user.IsVerified = false
+	database.Db.Save(&user)
 
 	response := dto.UserResponseDto{
 		ID:             user.ID,
 		Email:          user.Email,
-		AccessToken:    accessToken,
-		AccessTokenEx:  accessTokenExp,
-		RefreshToken:   refreshToken,
-		RefreshTokenEx: refreshTokenExp,
+		IsVerified:     user.IsVerified,
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created successfully", "data": response})
+	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created successfully, please verify your email", "data": response})
 }
 
 func Login(c *gin.Context) {
@@ -76,7 +68,7 @@ func Login(c *gin.Context) {
 	}
 
 	result := database.Db.Where("email = ?", request.Email).First(&user)
-	if result.Error != nil {
+	if result.Error != nil || !user.IsVerified {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
 		return
 	}
@@ -120,8 +112,23 @@ func SendOtp(c *gin.Context) {
 		return
 	}
 
+	user := models.User{
+		Email: request.Email,
+	}
+
+	result := database.Db.Where("email = ?", request.Email).First(&user)
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+		return
+	}
+
 	otp := utils.GenerateOtp(6)
 	services.SendMail(request.Email, "OTP for email verification", otp)
+
+	user.Otp = otp
+	user.OtpExp = time.Now().Add(time.Minute * 5).Unix()
+	database.Db.Save(&user)
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully", "data": otp})
 }
 
@@ -143,7 +150,7 @@ func VerifyOtp(c *gin.Context) {
 		return
 	}
 
-	if user.Otp != request.Otp {
+	if user.Otp != request.Otp || user.OtpExp < time.Now().Unix() {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Invalid OTP"})
 		return
 	}
@@ -151,5 +158,28 @@ func VerifyOtp(c *gin.Context) {
 	user.IsVerified = true
 	database.Db.Save(&user)
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified successfully"})
+	accessTokenExp := time.Now().Add(time.Hour * 24).Unix()
+	accessToken, err := utils.GenerateToken(user.ID, accessTokenExp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate access token " + err.Error()})
+		return
+	}
+
+	refreshTokenExp := time.Now().Add(time.Hour * 24 * 30).Unix()
+	refreshToken, err := utils.GenerateToken(user.ID, refreshTokenExp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate refresh token " + err.Error()})
+		return
+	}
+
+	response := dto.UserResponseDto{
+		ID:             user.ID,
+		Email:          user.Email,
+		AccessToken:    accessToken,
+		AccessTokenEx:  accessTokenExp,
+		RefreshToken:   refreshToken,
+		RefreshTokenEx: refreshTokenExp,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified successfully", "data": response})
 }

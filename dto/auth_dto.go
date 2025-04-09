@@ -17,6 +17,7 @@ type UserResponseDto struct {
 	RefreshToken  string `json:"refresh_token"`
 	AccessTokenEx int64  `json:"access_token_exp"`
 	RefreshTokenEx int64  `json:"refresh_token_exp"`
+	IsVerified    bool   `json:"is_verified"`
 }
 
 type SendOtpDto struct {
