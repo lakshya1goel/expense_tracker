@@ -1,10 +1,8 @@
 package models
 
 type User struct {
-	ID            uint   `json:"id"`
-	Email         string `json:"email"`
+	ID            uint   `json:"id" gorm:"primaryKey"`
+	Email         string `json:"email" gorm:"unique"`
 	Password      string `json:"password"`
-	Otp           string `json:"otp"`
-	OtpExp        int64  `json:"otp_exp"`
-	IsVerified    bool   `json:"is_verified"`
+	IsVerified    bool   `json:"is_verified" gorm:"default:false"`
 }

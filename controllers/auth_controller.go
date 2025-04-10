@@ -43,15 +43,12 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	user.IsVerified = false
 	database.Db.Save(&user)
-
 	response := dto.UserResponseDto{
 		ID:             user.ID,
 		Email:          user.Email,
 		IsVerified:     user.IsVerified,
 	}
-
 	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created successfully, please verify your email", "data": response})
 }
 
@@ -128,10 +125,14 @@ func SendOtp(c *gin.Context) {
 		return
 	}
 
-	user.Otp = otp
-	user.OtpExp = time.Now().Add(time.Minute * 5).Unix()
-	database.Db.Save(&user)
+	otpModel := models.Otp{
+		Id: user.ID,
+		Email: request.Email,
+		Otp:    otp,
+		OtpExp:    time.Now().Add(time.Minute * 5).Unix(),
+	}
 
+	database.Db.Save(&otpModel)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully", "data": otp})
 }
 
@@ -143,23 +144,32 @@ func VerifyOtp(c *gin.Context) {
 		return
 	}
 
-	user := models.User{
+	otpModel := models.Otp{
 		Email: request.Email,
 	}
 
-	result := database.Db.Where("email = ?", request.Email).First(&user)
+	result := database.Db.Where("email = ?", request.Email).First(&otpModel)
 	if result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
 		return
 	}
 
-	if user.Otp != request.Otp || user.OtpExp < time.Now().Unix() {
+	if otpModel.Otp != request.Otp || otpModel.OtpExp < time.Now().Unix() {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Invalid OTP"})
 		return
 	}
 
-	user.IsVerified = true
-	database.Db.Save(&user)
+	var user models.User
+    result = database.Db.Where("email = ?", request.Email).First(&user)
+    if result.Error != nil {
+        c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+        return
+    }
+
+	if err := database.Db.Model(&user).Update("is_verified", true).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update user"})
+        return
+    }
 
 	accessTokenExp := time.Now().Add(time.Hour * 24).Unix()
 	accessToken, err := utils.GenerateToken(user.ID, accessTokenExp)
@@ -182,6 +192,7 @@ func VerifyOtp(c *gin.Context) {
 		AccessTokenEx:  accessTokenExp,
 		RefreshToken:   refreshToken,
 		RefreshTokenEx: refreshTokenExp,
+		IsVerified:    true,
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified successfully", "data": response})
