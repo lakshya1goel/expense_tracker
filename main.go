@@ -2,11 +2,15 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/lakshya1goel/expense_tracker/database"
 	"github.com/lakshya1goel/expense_tracker/routes"
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		panic("Error loading .env file")
+	}
 	database.ConnectDb()
 
 	router := gin.Default()

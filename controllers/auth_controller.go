@@ -123,7 +123,10 @@ func SendOtp(c *gin.Context) {
 	}
 
 	otp := utils.GenerateOtp(6)
-	services.SendMail(request.Email, "OTP for email verification", otp)
+	if err := services.SendMail(request.Email, "OTP for email verification", otp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to send OTP " + err.Error()})
+		return
+	}
 
 	user.Otp = otp
 	user.OtpExp = time.Now().Add(time.Minute * 5).Unix()
