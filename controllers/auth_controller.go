@@ -43,7 +43,6 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	database.Db.Save(&user)
 	response := dto.UserResponseDto{
 		ID:             user.ID,
 		Email:          user.Email,

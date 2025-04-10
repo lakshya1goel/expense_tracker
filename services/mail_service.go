@@ -10,11 +10,8 @@ import (
 
 func SendMail(to string, subject string, body string) error {
 	email := os.Getenv("EMAIL")
-	fmt.Println("Email:", email)
 	password := os.Getenv("EMAIL_PASSWORD")
-	fmt.Println("Password:", password)
 	portStr := os.Getenv("EMAIL_PORT")
-	fmt.Println("Port:", portStr)
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		fmt.Println("Invalid port:", err)
