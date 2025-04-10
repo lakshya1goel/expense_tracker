@@ -185,6 +185,11 @@ func VerifyOtp(c *gin.Context) {
 		return
 	}
 
+	if err := database.Db.Delete(&otpModel).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to delete OTP " + err.Error()})
+		return
+	}
+
 	response := dto.UserResponseDto{
 		ID:             user.ID,
 		Email:          user.Email,
