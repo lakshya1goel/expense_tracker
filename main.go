@@ -5,6 +5,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/lakshya1goel/expense_tracker/database"
 	"github.com/lakshya1goel/expense_tracker/routes"
+	"github.com/lakshya1goel/expense_tracker/utils"
 )
 
 func main() {
@@ -12,12 +13,14 @@ func main() {
 		panic("Error loading .env file")
 	}
 	database.ConnectDb()
+	utils.InitGoogleOAuth()
 
 	router := gin.Default()
 	apiRouter := router.Group("/api")
 	{
 		routes.ExpenseRoutes(apiRouter)
 		routes.AuthRoutes(apiRouter)
+		routes.OauthRoutes(apiRouter)
 	}
 
 	router.Run(":8000")
@@ -26,4 +29,3 @@ func main() {
 //TODO:
 //1. resend otp rate limit
 //2. resend otp after 5 minutes
-//3. delete unverified user after 24 hours

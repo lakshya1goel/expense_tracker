@@ -13,6 +13,12 @@ require (
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
+	golang.org/x/oauth2 v0.29.0 // indirect
+)
+
+require (
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
