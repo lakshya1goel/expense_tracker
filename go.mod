@@ -7,16 +7,13 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/lib/pq v1.10.9
 	golang.org/x/crypto v0.23.0
+	golang.org/x/oauth2 v0.29.0
 	gopkg.in/mail.v2 v2.3.1
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
 )
 
-require (
-	cloud.google.com/go/compute/metadata v0.3.0 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
-	golang.org/x/oauth2 v0.29.0 // indirect
-)
+require cloud.google.com/go/compute/metadata v0.3.0 // indirect
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect
