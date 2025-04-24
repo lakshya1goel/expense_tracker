@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/lakshya1goel/expense_tracker/models"
 	"github.com/lakshya1goel/expense_tracker/services"
 	"github.com/lakshya1goel/expense_tracker/utils"
+	"gorm.io/gorm"
 )
 
 func Register(c *gin.Context) {
@@ -26,27 +28,49 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	user := models.User{
+	var existingUser models.User
+
+	result := database.Db.Where("email = ?", request.Email).First(&existingUser)
+	if result.Error == nil  {
+		if existingUser.IsVerified {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "User already exists"})
+			return
+		}
+
+		existingUser.Password = hashedPassword
+		if err := database.Db.Save(&existingUser).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update user " + err.Error()})
+			return
+		}
+
+		userResponse := dto.UserResponseDto{
+			ID:         existingUser.ID,
+			Email:      existingUser.Email,
+			IsVerified: existingUser.IsVerified,
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "User updated, please verify your email", "data": userResponse})
+		return
+	}
+	
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error " + result.Error.Error()})
+		return
+	}
+
+	newUser := models.User{
 		Email:    request.Email,
 		Password: hashedPassword,
 	}
 
-	result := database.Db.Where("email = ?", request.Email).First(&user)
-	if result.Error == nil && user.IsVerified {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "User already exists"})
-		return
-	}
-
-	result = database.Db.Create(&user)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create user " + result.Error.Error()})
+	if err := database.Db.Create(&newUser).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create user " + err.Error()})
 		return
 	}
 
 	response := dto.UserResponseDto{
-		ID:             user.ID,
-		Email:          user.Email,
-		IsVerified:     user.IsVerified,
+		ID:             newUser.ID,
+		Email:          newUser.Email,
+		IsVerified:     newUser.IsVerified,
 	}
 	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created successfully, please verify your email", "data": response})
 }
