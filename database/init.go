@@ -17,14 +17,14 @@ func CleanExpiredOTPs() error {
 }
 
 func CleanUnverifiedUsers() error {
-	return Db.Where("is_verified = false").Delete(&models.User{}).Error
+	return Db.Where("is_email_verified = false or is_mobile_verified = false").Delete(&models.User{}).Error
 }
 
 func InitDB() error {
 	if Db == nil {
 		return fmt.Errorf("database connection not established. Call ConnectDb first")
 	}
-	err := Db.AutoMigrate(&models.Expense{}, &models.User{}, &models.Otp{})
+	err := Db.AutoMigrate(&models.Expense{}, &models.User{}, &models.Otp{}, &models.Group{})
 	if err != nil {
 		return fmt.Errorf("error creating expenses table: %v", err)
 	}

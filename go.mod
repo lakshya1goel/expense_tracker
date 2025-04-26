@@ -13,7 +13,13 @@ require (
 	gorm.io/gorm v1.25.12
 )
 
-require cloud.google.com/go/compute/metadata v0.3.0 // indirect
+require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/golang/mock v1.6.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/twilio/twilio-go v1.25.1 // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect

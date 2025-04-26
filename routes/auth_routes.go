@@ -11,6 +11,7 @@ func AuthRoutes(router *gin.RouterGroup) {
 		authRouter.POST("/register", controllers.Register)
 		authRouter.POST("/login", controllers.Login)
 		authRouter.POST("/send-otp", controllers.SendOtp)
-		authRouter.POST("/verify-otp", controllers.VerifyOtp)
+		authRouter.POST("/verify-mail", controllers.VerifyMail)
+		authRouter.POST("/verify-mobile", controllers.VerifyMobile)
 	}
 }

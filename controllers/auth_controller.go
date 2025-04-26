@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/lakshya1goel/expense_tracker/models"
 	"github.com/lakshya1goel/expense_tracker/services"
 	"github.com/lakshya1goel/expense_tracker/utils"
+	"gorm.io/gorm"
 )
 
 func Register(c *gin.Context) {
@@ -20,35 +22,68 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	if request.Email == "" || request.Mobile == "" || request.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "All fields are required"})
+		return
+	}
+
 	hashedPassword, err := utils.HashPassword(request.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to hash password " + err.Error()})
 		return
 	}
 
-	user := models.User{
-		Email:    request.Email,
-		Password: hashedPassword,
-	}
+	var existingUser models.User
+	result := database.Db.Where("email = ? OR mobile = ?", request.Email, request.Mobile).First(&existingUser)
+	if result.Error == nil {
+		if existingUser.IsEmailVerified && existingUser.IsMobileVerified {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Email already exists"})
+			return
+		}
 
-	result := database.Db.Where("email = ?", request.Email).First(&user)
-	if result.Error == nil && user.IsVerified {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "User already exists"})
+		existingUser.Password = hashedPassword
+		existingUser.Email = request.Email
+		existingUser.Mobile = request.Mobile
+		if err := database.Db.Save(&existingUser).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update user " + err.Error()})
+			return
+		}
+
+		userResponse := dto.UserResponseDto{
+			ID:         existingUser.ID,
+			Email:      existingUser.Email,
+			Mobile:     existingUser.Mobile,
+			IsEmailVerified: existingUser.IsEmailVerified,
+			IsMobileVerified: existingUser.IsMobileVerified,
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "User updated, please verify your email and mobile", "data": userResponse})
 		return
 	}
 
-	result = database.Db.Create(&user)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create user " + result.Error.Error()})
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error " + result.Error.Error()})
+		return
+	}
+
+	newUser := models.User{
+		Email:    request.Email,
+		Mobile:   request.Mobile,
+		Password: hashedPassword,
+	}
+
+	if err := database.Db.Create(&newUser).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create user " + err.Error()})
 		return
 	}
 
 	response := dto.UserResponseDto{
-		ID:             user.ID,
-		Email:          user.Email,
-		IsVerified:     user.IsVerified,
+		ID:         newUser.ID,
+		Email:      newUser.Email,
+		Mobile:     newUser.Mobile,
+		IsEmailVerified: newUser.IsEmailVerified,
+		IsMobileVerified: newUser.IsMobileVerified,
 	}
-	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created successfully, please verify your email", "data": response})
+	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created successfully, please verify your email and mobile", "data": response})
 }
 
 func Login(c *gin.Context) {
@@ -59,17 +94,35 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	user := models.User{
-		Email: request.Email,
-	}
+	if request.Email == "" && request.Mobile == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Email or mobile is required"})
+        return
+    }
 
-	result := database.Db.Where("email = ?", request.Email).First(&user)
-	if result.Error != nil || !user.IsVerified {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+	var user models.User
+	var result *gorm.DB
+	if request.Email != "" {
+		result = database.Db.Where("email = ?", request.Email).First(&user)
+	} else if request.Mobile != "" {
+		result = database.Db.Where("mobile = ?", request.Mobile).First(&user)
+	}
+	if( result.Error != nil) {
+		if result.Error != gorm.ErrRecordNotFound {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error " + result.Error.Error()})
+			return
+		} else if result.Error == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+			return
+		}
+	} else if !user.IsEmailVerified {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Email not verified"})
+		return
+	} else if !user.IsMobileVerified {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Mobile not verified"})
 		return
 	}
 
-	if !utils.VerifyPasswordHash(user.Password, request.Password) {
+	if !utils.VerifyPasswordHash(request.Password, user.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Invalid password"})
 		return
 	}
@@ -91,6 +144,9 @@ func Login(c *gin.Context) {
 	response := dto.UserResponseDto{
 		ID:             user.ID,
 		Email:          user.Email,
+		Mobile:         user.Mobile,
+		IsEmailVerified: user.IsEmailVerified,
+		IsMobileVerified: user.IsMobileVerified,
 		AccessToken:    accessToken,
 		AccessTokenEx:  accessTokenExp,
 		RefreshToken:   refreshToken,
@@ -108,52 +164,76 @@ func SendOtp(c *gin.Context) {
 		return
 	}
 
-	user := models.User{
-		Email: request.Email,
+	if request.Email == "" && request.Mobile == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Email or mobile is required"})
+        return
+    }
+
+	var user models.User
+	if request.Email != "" {
+		result := database.Db.Where("email = ?", request.Email).First(&user)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Email not found"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + result.Error.Error()})
+			return
+		}
+	}
+	
+	if request.Mobile != "" {
+		result := database.Db.Where("mobile = ? and id = ?", request.Mobile, user.ID).First(&user)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Mobile number not found"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + result.Error.Error()})
+			return
+		}
 	}
 
-	result := database.Db.Where("email = ?", request.Email).First(&user)
-	if result.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+	emailOtp := utils.GenerateOtp(6)
+	mobileOtp := utils.GenerateOtp(6)
+	if err := services.SendMail(request.Email, "OTP for email verification", emailOtp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to send OTP " + err.Error()})
 		return
 	}
 
-	otp := utils.GenerateOtp(6)
-	if err := services.SendMail(request.Email, "OTP for email verification", otp); err != nil {
+	if err := services.SendSms("+91" + request.Mobile, mobileOtp); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to send OTP " + err.Error()})
 		return
 	}
 
 	otpModel := models.Otp{
-		Id: user.ID,
-		Email: request.Email,
-		Otp:    otp,
-		OtpExp:    time.Now().Add(time.Minute * 5).Unix(),
+		Email:  request.Email,
+		Mobile: request.Mobile,
+		EmailOtp:    emailOtp,
+		MobileOtp: mobileOtp,
+		OtpExp: time.Now().Add(time.Minute * 5).Unix(),
 	}
 
 	database.Db.Save(&otpModel)
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully", "data": otp})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully", "emailOtp": emailOtp, "mobileOtp": mobileOtp})
 }
 
-func VerifyOtp(c *gin.Context) {
-	var request dto.VerifyOtpDto
+func VerifyMail(c *gin.Context) {
+	var request dto.VerifyMailDto
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
-	otpModel := models.Otp{
-		Email: request.Email,
-	}
-
+	var otpModel models.Otp
 	result := database.Db.Where("email = ?", request.Email).First(&otpModel)
 	if result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
 		return
 	}
 
-	if otpModel.Otp != request.Otp || otpModel.OtpExp < time.Now().Unix() {
+	if otpModel.EmailOtp != request.EmailOtp || otpModel.OtpExp < time.Now().Unix() {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Invalid OTP"})
 		return
 	}
@@ -165,7 +245,52 @@ func VerifyOtp(c *gin.Context) {
         return
     }
 
-	if err := database.Db.Model(&user).Update("is_verified", true).Error; err != nil {
+	if err := database.Db.Model(&user).Update("is_email_verified", true).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update user"})
+        return
+    }
+	if err := database.Db.Model(&otpModel).Where("id = ?", otpModel.Id).Update("email_otp", "").Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update OTP"})
+		return
+	}
+
+	response := dto.UserResponseDto{
+		ID:             user.ID,
+		Email:          user.Email,
+		IsEmailVerified:    true,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified successfully", "data": response})
+}
+
+func VerifyMobile(c *gin.Context) {
+	var request dto.VerifyMobileDto
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	var otpModel models.Otp
+	result := database.Db.Where("mobile = ?", request.Mobile).First(&otpModel)
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+		return
+	}
+
+	if otpModel.MobileOtp != request.MobileOtp || otpModel.OtpExp < time.Now().Unix() {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Invalid OTP"})
+		return
+	}
+
+	var user models.User
+    result = database.Db.Where("mobile = ?", request.Mobile).First(&user)
+    if result.Error != nil {
+        c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found"})
+        return
+    }
+
+	if err := database.Db.Model(&user).Update("is_mobile_verified", true).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update user"})
         return
     }
@@ -191,13 +316,13 @@ func VerifyOtp(c *gin.Context) {
 
 	response := dto.UserResponseDto{
 		ID:             user.ID,
-		Email:          user.Email,
+		Mobile:          user.Mobile,
+		IsMobileVerified:    true,
 		AccessToken:    accessToken,
 		AccessTokenEx:  accessTokenExp,
 		RefreshToken:   refreshToken,
 		RefreshTokenEx: refreshTokenExp,
-		IsVerified:    true,
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified successfully", "data": response})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Mobile verified successfully", "data": response})
 }
