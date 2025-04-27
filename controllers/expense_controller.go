@@ -17,7 +17,7 @@ func CreateExpense(c *gin.Context) {
 	var request dto.CreateExpenseDto
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
@@ -31,7 +31,7 @@ func CreateExpense(c *gin.Context) {
 
 	if result.Error != nil {
 		log.Println(result.Error)
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create expense " + result.Error.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to create expense " + result.Error.Error()})
 		return
 	}
 
@@ -49,7 +49,7 @@ func GetExpenses(c *gin.Context) {
 	var dbExpenses []models.Expense
 	result := database.Db.Order("created_at").Find(&dbExpenses)
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to fetch expenses " + result.Error.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to fetch expenses " + result.Error.Error()})
 		return
 	}
 
@@ -74,16 +74,16 @@ func DeleteExpense(c *gin.Context) {
 
 	if expenseResult.Error != nil {
 		if errors.Is(expenseResult.Error, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Expense not found " + expenseResult.Error.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Expense not found " + expenseResult.Error.Error()})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "DB Error " + expenseResult.Error.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "DB Error " + expenseResult.Error.Error()})
 		}
 		return
 	}
 
 	result := database.Db.Delete(&models.Expense{}, id)
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to delete expense " + result.Error.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to delete expense " + result.Error.Error()})
 		return
 	}
 
@@ -95,7 +95,7 @@ func UpdateExpense(c *gin.Context) {
 
 	var request dto.CreateExpenseDto
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
@@ -110,9 +110,9 @@ func UpdateExpense(c *gin.Context) {
 
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Expense not found " + result.Error.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Expense not found " + result.Error.Error()})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "DB Error " + result.Error.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "DB Error " + result.Error.Error()})
 		}
 		return
 	}
