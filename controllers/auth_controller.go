@@ -37,7 +37,7 @@ func Register(c *gin.Context) {
 	result := database.Db.Where("email = ? OR mobile = ?", request.Email, request.Mobile).First(&existingUser)
 	if result.Error == nil {
 		if existingUser.IsEmailVerified && existingUser.IsMobileVerified {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Email already exists"})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Email or mobile already exists"})
 			return
 		}
 
@@ -49,14 +49,28 @@ func Register(c *gin.Context) {
 			return
 		}
 
-		userResponse := dto.UserResponseDto{
-			ID:               existingUser.ID,
-			Email:            existingUser.Email,
-			Mobile:           existingUser.Mobile,
-			IsEmailVerified:  existingUser.IsEmailVerified,
-			IsMobileVerified: existingUser.IsMobileVerified,
+		emailOtp := utils.GenerateOtp(6)
+		mobileOtp := utils.GenerateOtp(6)
+		if err := services.SendMail(request.Email, "OTP for email verification", emailOtp); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send OTP " + err.Error()})
+			return
 		}
-		c.JSON(http.StatusOK, gin.H{"success": true, "message": "User updated, please verify your email and mobile", "data": userResponse})
+
+		if err := services.SendSms("+91"+request.Mobile, mobileOtp); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send OTP " + err.Error()})
+			return
+		}
+
+		otpModel := models.Otp{
+			Email:     request.Email,
+			Mobile:    request.Mobile,
+			EmailOtp:  emailOtp,
+			MobileOtp: mobileOtp,
+			OtpExp:    time.Now().Add(time.Minute * 5).Unix(),
+		}
+
+		database.Db.Save(&otpModel)
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully"})
 		return
 	}
 
@@ -76,14 +90,28 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	response := dto.UserResponseDto{
-		ID:               newUser.ID,
-		Email:            newUser.Email,
-		Mobile:           newUser.Mobile,
-		IsEmailVerified:  newUser.IsEmailVerified,
-		IsMobileVerified: newUser.IsMobileVerified,
+	emailOtp := utils.GenerateOtp(6)
+	mobileOtp := utils.GenerateOtp(6)
+	if err := services.SendMail(request.Email, "OTP for email verification", emailOtp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send OTP " + err.Error()})
+		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "User created successfully, please verify your email and mobile", "data": response})
+
+	if err := services.SendSms("+91"+request.Mobile, mobileOtp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send OTP " + err.Error()})
+		return
+	}
+
+	otpModel := models.Otp{
+		Email:     request.Email,
+		Mobile:    request.Mobile,
+		EmailOtp:  emailOtp,
+		MobileOtp: mobileOtp,
+		OtpExp:    time.Now().Add(time.Minute * 5).Unix(),
+	}
+
+	database.Db.Save(&otpModel)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully"})
 }
 
 func Login(c *gin.Context) {
