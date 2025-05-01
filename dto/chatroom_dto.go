@@ -1,7 +1,7 @@
 package dto
 
-type CreateGroupDto struct {
-	Name        string `json:"name" binding:"required"`
+type CreateChatDto struct {
+	Name        string `json:"name"`
 	Description string `json:"description"`
 	Members     []string `json:"members" binding:"required"`
 }

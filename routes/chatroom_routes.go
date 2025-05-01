@@ -6,14 +6,15 @@ import (
 )
 
 func GroupRoutes(router *gin.RouterGroup) {
-	authRouter := router.Group("/group") 
+	authRouter := router.Group("/chatroom") 
 	{
-		authRouter.POST("/create", controllers.CreateGroup)
-		authRouter.GET("/get-all/:id", controllers.GetAllGroups)
-		authRouter.GET("/get/:id", controllers.GetGroup)
+		authRouter.POST("/create-group", controllers.CreateGroup)
+		authRouter.GET("/get-all/:id", controllers.GetAllChatrooms)
+		authRouter.GET("/get/:id", controllers.GetChatroom)
 		authRouter.POST("/add-member/:id", controllers.AddMembers)
 		authRouter.POST("/remove-member/:id", controllers.RemoveMembers)
 		authRouter.PUT("/update/:id", controllers.UpdateGroup)
 		authRouter.DELETE("/delete/:id", controllers.DeleteGroup)
+		authRouter.POST("create-private", controllers.CreatePrivateChat)
 	}
 }
