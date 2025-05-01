@@ -11,9 +11,9 @@ func GroupRoutes(router *gin.RouterGroup) {
 		authRouter.POST("/create", controllers.CreateGroup)
 		authRouter.GET("/get-all/:id", controllers.GetAllGroups)
 		authRouter.GET("/get/:id", controllers.GetGroup)
-		// authRouter.PUT("/update/:id", controllers.UpdateGroup)
-		// authRouter.DELETE("/delete/:id", controllers.DeleteGroup)
-		// authRouter.POST("/add-member/:id", controllers.AddMember)
-		// authRouter.POST("/remove-member/:id", controllers.RemoveMember)
+		authRouter.POST("/add-member/:id", controllers.AddMembers)
+		authRouter.POST("/remove-member/:id", controllers.RemoveMembers)
+		authRouter.PUT("/update/:id", controllers.UpdateGroup)
+		authRouter.DELETE("/delete/:id", controllers.DeleteGroup)
 	}
 }
