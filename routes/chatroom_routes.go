@@ -3,18 +3,20 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/lakshya1goel/expense_tracker/controllers"
+	"github.com/lakshya1goel/expense_tracker/ws"
 )
 
-func GroupRoutes(router *gin.RouterGroup) {
-	authRouter := router.Group("/chatroom") 
+func ChatRoutes(router *gin.RouterGroup) {
+	chatRouter := router.Group("/chatroom")
 	{
-		authRouter.POST("/create-group", controllers.CreateGroup)
-		authRouter.GET("/get-all/:id", controllers.GetAllChatrooms)
-		authRouter.GET("/get/:id", controllers.GetChatroom)
-		authRouter.POST("/add-member/:id", controllers.AddMembers)
-		authRouter.POST("/remove-member/:id", controllers.RemoveMembers)
-		authRouter.PUT("/update/:id", controllers.UpdateGroup)
-		authRouter.DELETE("/delete/:id", controllers.DeleteGroup)
-		authRouter.POST("create-private", controllers.CreatePrivateChat)
+		chatRouter.GET("/ws", ws.HandleWebSocket)
+		chatRouter.POST("/create-group", controllers.CreateGroup)
+		chatRouter.GET("/get-all/:id", controllers.GetAllChatrooms)
+		chatRouter.GET("/get/:id", controllers.GetChatroom)
+		chatRouter.POST("/add-member/:id", controllers.AddMembers)
+		chatRouter.POST("/remove-member/:id", controllers.RemoveMembers)
+		chatRouter.PUT("/update/:id", controllers.UpdateGroup)
+		chatRouter.DELETE("/delete/:id", controllers.DeleteGroup)
+		chatRouter.POST("create-private", controllers.CreatePrivateChat)
 	}
 }
