@@ -5,17 +5,15 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"github.com/lakshya1goel/expense_tracker/models"
 )
 
 type Client struct {
 	Conn *websocket.Conn
 	Pool *Pool
+	User *models.User
+	Room *models.ChatRoom
 	mu   sync.Mutex
-}
-
-type Message struct {
-	Type int    `json:"type"`
-	Body string `json:"body"`
 }
 
 func (c *Client) Read() {
@@ -30,7 +28,12 @@ func (c *Client) Read() {
 			fmt.Println(err)
 			return
 		}
-		m := Message{Type: msgType, Body: string(msg)}
+		m := models.Message{
+			Type: msgType, 
+			Body: string(msg),
+			Sender: c.User.ID,
+			Room: c.Room.ID,
+		}
 
 		c.Pool.Broadcast <- m
 
