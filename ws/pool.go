@@ -2,7 +2,6 @@ package ws
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/lakshya1goel/expense_tracker/models"
@@ -29,23 +28,27 @@ func (pool *Pool) Start() {
 	for {
 		select {
 		case client := <-pool.Register:
-			pool.mu.Lock()
-			roomId := strconv.Itoa(int(client.Room.ID))
-			if _, ok := pool.Rooms[roomId]; !ok {
-				pool.Rooms[roomId] = make(map[*Client]bool)
+			if client.RoomId == "" {
+				fmt.Println("Error: Client has not joined a valid room. Skipping registration.")
+				continue
 			}
-			pool.Rooms[roomId][client] = true
+
+			pool.mu.Lock()
+			if _, ok := pool.Rooms[client.RoomId]; !ok {
+				pool.Rooms[client.RoomId] = make(map[*Client]bool)
+			}
+			pool.Rooms[client.RoomId][client] = true
 			pool.mu.Unlock()
 
-			fmt.Printf("New user joined room: %s, total users: %d\n", roomId, len(pool.Rooms[roomId]))
+			fmt.Printf("New user joined room: %s, total users: %d\n", client.RoomId, len(pool.Rooms[client.RoomId]))
 
-			for c := range pool.Rooms[roomId] {
+			for c := range pool.Rooms[client.RoomId] {
 				if c != client {
 					err := c.Conn.WriteJSON(models.Message{
-						Type:   1,
+						Type:   models.JoinRoom,
 						Body:   "New User Joined",
 						Sender: 0,
-						Room:   client.Room.ID,
+						Room:   client.RoomId,
 					})
 					if err != nil {
 						fmt.Println("Write error:", err)
@@ -53,22 +56,26 @@ func (pool *Pool) Start() {
 				}
 			}
 		case client := <-pool.Unregister:
+			if client.RoomId == "" {
+				fmt.Println("Error: Client with invalid RoomId tried to unregister.")
+				continue
+			}
+
 			pool.mu.Lock()
-			roomId := strconv.Itoa(int(client.Room.ID))
-			if _, ok := pool.Rooms[roomId]; ok {
-				delete(pool.Rooms[roomId], client)
-				if len(pool.Rooms[roomId]) == 0 {
-					delete(pool.Rooms, roomId)
+			if _, ok := pool.Rooms[client.RoomId]; ok {
+				delete(pool.Rooms[client.RoomId], client)
+				if len(pool.Rooms[client.RoomId]) == 0 {
+					delete(pool.Rooms, client.RoomId)
 				}
 			}
 			pool.mu.Unlock()
 
-			for c := range pool.Rooms[roomId] {
+			for c := range pool.Rooms[client.RoomId] {
 				err := c.Conn.WriteJSON(models.Message{
-					Type:   1,
+					Type:   models.LeaveRoom,
 					Body:   "User Disconnected",
 					Sender: 0,
-					Room:   client.Room.ID,
+					Room:   client.RoomId,
 				})
 				if err != nil {
 					fmt.Println("Write error:", err)
@@ -77,9 +84,8 @@ func (pool *Pool) Start() {
 		case msg := <-pool.Broadcast:
 			fmt.Println("Broadcasting message to room:", msg.Room)
 			pool.mu.RLock()
-			roomId := strconv.Itoa(int(msg.Room))
-			for c := range pool.Rooms[roomId] {
-				if c.User.ID == msg.Sender {
+			for c := range pool.Rooms[msg.Room] {
+				if c.UserId == msg.Sender {
 					continue
 				}
 				if err := c.Conn.WriteJSON(msg); err != nil {

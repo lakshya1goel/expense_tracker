@@ -21,6 +21,17 @@ func init() {
 }
 
 func HandleWebSocket(c *gin.Context) {
+	userIdRaw, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	userId, ok := userIdRaw.(float64)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Invalid user ID in context"})
+		return
+	}
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		fmt.Println("Error upgrading:", err)
@@ -28,8 +39,9 @@ func HandleWebSocket(c *gin.Context) {
 	}
 
 	client := &Client{
-		Conn: conn,
-		Pool: pool,
+		Conn:   conn,
+		Pool:   pool,
+		UserId: uint(userId),
 	}
 
 	pool.Register <- client

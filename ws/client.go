@@ -11,8 +11,8 @@ import (
 type Client struct {
 	Conn *websocket.Conn
 	Pool *Pool
-	User *models.User
-	Room *models.ChatRoom
+	UserId uint
+	RoomId string
 	mu   sync.Mutex
 }
 
@@ -23,20 +23,41 @@ func (c *Client) Read() {
 	}()
 
 	for {
-		msgType, msg, err := c.Conn.ReadMessage()
+		var msg models.Message
+		err := c.Conn.ReadJSON(&msg)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Read error:", err)
 			return
 		}
-		m := models.Message{
-			Type: msgType, 
-			Body: string(msg),
-			Sender: c.User.ID,
-			Room: c.Room.ID,
+
+		switch msg.Type {
+		case models.JoinRoom:
+			if msg.Room == "" {
+				fmt.Println("Error: Invalid Room ID received.")
+				continue
+			}
+			c.RoomId = msg.Room
+			c.Pool.Register <- c
+
+		case models.LeaveRoom:
+			if c.RoomId == "" {
+				fmt.Println("Client has not joined any room")
+				continue
+			}
+			c.Pool.Unregister <- c
+			return
+
+		case models.ChatMessage:
+			if c.RoomId == "" {
+				fmt.Println("Client has not joined any room")
+				continue
+			}
+			msg.Sender = c.UserId
+			msg.Room = c.RoomId
+			c.Pool.Broadcast <- msg
+
+		default:
+			fmt.Println("Unknown message type:", msg.Type)
 		}
-
-		c.Pool.Broadcast <- m
-
-		fmt.Println("msg recieved===>>>\n", m)
 	}
 }
