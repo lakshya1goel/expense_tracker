@@ -1,14 +1,19 @@
 package models
 
+import (
+	"gorm.io/gorm"
+)
+
 type Message struct {
-	Type int    `json:"type"` // 0: join_room, 1: chat message
-	Body string `json:"body"`
-	Sender uint `json:"sender"`
-	Room string `json:"room"`
+	gorm.Model
+	Type    string `json:"type"`
+	Body    string `json:"body"`
+	Sender  uint   `json:"sender"`
+	GroupID uint   `json:"group_id"`
 }
 
 const (
-    JoinRoom    = 0
-    LeaveRoom   = 1
-    ChatMessage = 2
+	JoinGroup   = "join-group"
+	LeaveGroup  = "leave-group"
+	ChatMessage = "message"
 )

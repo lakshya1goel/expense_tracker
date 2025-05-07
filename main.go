@@ -21,7 +21,7 @@ func main() {
 		routes.ExpenseRoutes(apiRouter)
 		routes.AuthRoutes(apiRouter)
 		routes.OauthRoutes(apiRouter)
-		routes.ChatRoutes(apiRouter)
+		routes.GroupRoutes(apiRouter)
 	}
 
 	router.Run(":8000")

@@ -10,7 +10,7 @@ import (
 type Pool struct {
 	Register   chan *Client
 	Unregister chan *Client
-	Rooms      map[string]map[*Client]bool
+	Groups      map[uint]map[*Client]bool
 	Broadcast  chan models.Message
 	mu         sync.RWMutex
 }
@@ -19,7 +19,7 @@ func NewPool() *Pool {
 	return &Pool{
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
-		Rooms:      make(map[string]map[*Client]bool),
+		Groups:      make(map[uint]map[*Client]bool),
 		Broadcast:  make(chan models.Message),
 	}
 }
@@ -28,27 +28,27 @@ func (pool *Pool) Start() {
 	for {
 		select {
 		case client := <-pool.Register:
-			if client.RoomId == "" {
-				fmt.Println("Error: Client has not joined a valid room. Skipping registration.")
+			if client.GroupID == 0 {
+				fmt.Println("Error: Client has not joined a valid group. Skipping registration.")
 				continue
 			}
 
 			pool.mu.Lock()
-			if _, ok := pool.Rooms[client.RoomId]; !ok {
-				pool.Rooms[client.RoomId] = make(map[*Client]bool)
+			if _, ok := pool.Groups[client.GroupID]; !ok {
+				pool.Groups[client.GroupID] = make(map[*Client]bool)
 			}
-			pool.Rooms[client.RoomId][client] = true
+			pool.Groups[client.GroupID][client] = true
 			pool.mu.Unlock()
 
-			fmt.Printf("New user joined room: %s, total users: %d\n", client.RoomId, len(pool.Rooms[client.RoomId]))
+			fmt.Printf("New user joined group: %s, total users: %d\n", client.GroupID, len(pool.Groups[client.GroupID]))
 
-			for c := range pool.Rooms[client.RoomId] {
+			for c := range pool.Groups[client.GroupID] {
 				if c != client {
 					err := c.Conn.WriteJSON(models.Message{
-						Type:   models.JoinRoom,
+						Type:   models.JoinGroup,
 						Body:   "New User Joined",
 						Sender: 0,
-						Room:   client.RoomId,
+						GroupID:   client.GroupID,
 					})
 					if err != nil {
 						fmt.Println("Write error:", err)
@@ -56,35 +56,35 @@ func (pool *Pool) Start() {
 				}
 			}
 		case client := <-pool.Unregister:
-			if client.RoomId == "" {
-				fmt.Println("Error: Client with invalid RoomId tried to unregister.")
+			if client.GroupID == 0 {
+				fmt.Println("Error: Client with invalid GroupID tried to unregister.")
 				continue
 			}
 
 			pool.mu.Lock()
-			if _, ok := pool.Rooms[client.RoomId]; ok {
-				delete(pool.Rooms[client.RoomId], client)
-				if len(pool.Rooms[client.RoomId]) == 0 {
-					delete(pool.Rooms, client.RoomId)
+			if _, ok := pool.Groups[client.GroupID]; ok {
+				delete(pool.Groups[client.GroupID], client)
+				if len(pool.Groups[client.GroupID]) == 0 {
+					delete(pool.Groups, client.GroupID)
 				}
 			}
 			pool.mu.Unlock()
 
-			for c := range pool.Rooms[client.RoomId] {
+			for c := range pool.Groups[client.GroupID] {
 				err := c.Conn.WriteJSON(models.Message{
-					Type:   models.LeaveRoom,
+					Type:   models.LeaveGroup,
 					Body:   "User Disconnected",
 					Sender: 0,
-					Room:   client.RoomId,
+					GroupID: client.GroupID,
 				})
 				if err != nil {
 					fmt.Println("Write error:", err)
 				}
 			}
 		case msg := <-pool.Broadcast:
-			fmt.Println("Broadcasting message to room:", msg.Room)
+			fmt.Println("Broadcasting message to group:", msg.GroupID)
 			pool.mu.RLock()
-			for c := range pool.Rooms[msg.Room] {
+			for c := range pool.Groups[msg.GroupID] {
 				if c.UserId == msg.Sender {
 					continue
 				}

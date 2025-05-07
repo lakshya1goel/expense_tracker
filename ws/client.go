@@ -9,11 +9,11 @@ import (
 )
 
 type Client struct {
-	Conn *websocket.Conn
-	Pool *Pool
+	Conn   *websocket.Conn
+	Pool   *Pool
 	UserId uint
-	RoomId string
-	mu   sync.Mutex
+	GroupID uint
+	mu     sync.Mutex
 }
 
 func (c *Client) Read() {
@@ -31,29 +31,29 @@ func (c *Client) Read() {
 		}
 
 		switch msg.Type {
-		case models.JoinRoom:
-			if msg.Room == "" {
-				fmt.Println("Error: Invalid Room ID received.")
+		case models.JoinGroup:
+			if msg.GroupID == 0 {
+				fmt.Println("Error: Invalid Group ID received.")
 				continue
 			}
-			c.RoomId = msg.Room
+			c.GroupID = msg.GroupID
 			c.Pool.Register <- c
 
-		case models.LeaveRoom:
-			if c.RoomId == "" {
-				fmt.Println("Client has not joined any room")
+		case models.LeaveGroup:
+			if c.GroupID == 0 {
+				fmt.Println("Client has not joined any group")
 				continue
 			}
 			c.Pool.Unregister <- c
 			return
 
 		case models.ChatMessage:
-			if c.RoomId == "" {
-				fmt.Println("Client has not joined any room")
+			if c.GroupID == 0 {
+				fmt.Println("Client has not joined any group")
 				continue
 			}
 			msg.Sender = c.UserId
-			msg.Room = c.RoomId
+			msg.GroupID = c.GroupID
 			c.Pool.Broadcast <- msg
 
 		default:

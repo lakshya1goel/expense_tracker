@@ -1,13 +1,13 @@
 package models
 
-import "time"
+import "gorm.io/gorm"
 
-type ChatRoom struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	Type        string    `json:"type" gorm:"type:ENUM('group', 'private')"`
-	Name        string   `json:"name"`
-	Description string    `json:"description"`
-	Members     []User    `json:"members" gorm:"many2many:group_users"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+// TODO: reanme it to Group
+type Group struct {
+	gorm.Model
+	Type        string     `json:"type" gorm:"type:ENUM('group', 'private')"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Users       []*User    `json:"users" gorm:"many2many:group_users"`
+	Messages    []*Message `json:"messages"`
 }
