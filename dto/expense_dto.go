@@ -7,7 +7,7 @@ type CreateExpenseDto struct {
 }
 
 type ExpenseResponseDto struct {
-	ID          int    `json:"id"`
+	ID          uint    `json:"id"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Amount      int    `json:"amount"`

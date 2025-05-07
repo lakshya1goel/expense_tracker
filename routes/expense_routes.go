@@ -14,5 +14,6 @@ func ExpenseRoutes(router *gin.RouterGroup) {
 		expenseRouter.GET("/", controllers.GetExpenses)
 		expenseRouter.DELETE("/:id", controllers.DeleteExpense)
 		expenseRouter.PUT("/:id", controllers.UpdateExpense)
+		// expenseRouter.GET("/user/:id", controllers.GetUserExpenses)
 	}
 }
