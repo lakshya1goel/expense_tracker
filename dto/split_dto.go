@@ -15,6 +15,6 @@ type SplitResponseDto struct {
 	Description *string  `json:"description"`
 	Amount      int      `json:"amount"`
 	GroupID     uint     `json:"group_id"`
-	PaidBy      uint     `json:"paid_by"`
+	PaidByCount      int     `json:"PaidByCount"`
 	Splits      []*models.Split `json:"splits"`
 }

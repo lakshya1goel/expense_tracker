@@ -45,7 +45,7 @@ func CreateSplit(c *gin.Context) {
 		Description: *request.Description,
 		Amount:      request.Amount,
 		GroupID:     &request.GroupID,
-		PaidBy:      userID.(uint),
+		PaidByCount:      1,
 	}
 	if err := database.Db.Create(&expense).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
@@ -54,12 +54,19 @@ func CreateSplit(c *gin.Context) {
 
 	splitAmt := expense.Amount / len(group.Users)
 	for _, user := range group.Users {
+		var split models.Split
 		if user.ID == userID.(uint) {
-			continue
+			split = models.Split{
+				ExpenseID: expense.ID,
+				SplitAmt:  splitAmt,
+				OwedByID:  user.ID,
+				OwedToID:  userID.(uint),
+				IsPaid:    true,
+			}
 		}
-		split := models.Split{
+		split = models.Split{
 			ExpenseID: expense.ID,
-			SplitAmt: splitAmt,
+			SplitAmt:  splitAmt,
 			OwedByID:  user.ID,
 			OwedToID:  userID.(uint),
 			IsPaid:    false,
@@ -76,8 +83,66 @@ func CreateSplit(c *gin.Context) {
 		Description: &expense.Description,
 		Amount:      expense.Amount,
 		GroupID:     *expense.GroupID,
-		PaidBy:      expense.PaidBy,
-		Splits:      expense.Splits,	
+		PaidByCount:  expense.PaidByCount,
+		Splits:      expense.Splits,
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Split created successfully", "data": response})
+}
+
+func GetAllExpenses(c *gin.Context) {
+	groupId := c.Param("id")
+	var expenses []models.Expense
+	if err := database.Db.Where("group_id = ?", groupId).Find(&expenses).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if len(expenses) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "No expenses found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Expenses fetched successfully", "data": expenses})
+}
+
+func GetSplit(c *gin.Context) {
+	expenseId := c.Param("id")
+	var splits []models.Split
+	if err := database.Db.Where("expense_id = ?", expenseId).Find(&splits).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if len(splits) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "No splits found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Splits fetched successfully", "data": splits})
+}
+
+func MarkSplitAsPaid(c *gin.Context) {
+	splitId := c.Param("id")
+	var split models.Split
+	if err := database.Db.Where("id = ?", splitId).First(&split).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if split.IsPaid {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Split already paid"})
+		return
+	}
+	split.IsPaid = true
+	if err := database.Db.Save(&split).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	var expense models.Expense
+	if err := database.Db.Where("id = ?", split.ExpenseID).First(&expense).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if err := database.Db.Model(&expense).Update("paid_by_count", expense.PaidByCount+1).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Split marked as paid successfully"})
 }
