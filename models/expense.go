@@ -4,6 +4,7 @@ import "gorm.io/gorm"
 
 type Expense struct {
 	gorm.Model
+	UserID    	uint   `json:"user_id"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Amount      int    `json:"amount"`

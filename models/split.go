@@ -5,6 +5,7 @@ import "gorm.io/gorm"
 type Split struct {
 	gorm.Model
 	ExpenseID uint   `json:"expense_id"`
+	GroupID   uint   `json:"group_id"`
 	SplitAmt   int    `json:"split_amount"`
 	OwedByID  uint   `json:"owed_by_id"`
 	OwedToID  uint   `json:"owed_to_id"`

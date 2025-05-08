@@ -58,6 +58,7 @@ func CreateSplit(c *gin.Context) {
 		if user.ID == userID.(uint) {
 			split = models.Split{
 				ExpenseID: expense.ID,
+				GroupID:   *expense.GroupID,
 				SplitAmt:  splitAmt,
 				OwedByID:  user.ID,
 				OwedToID:  userID.(uint),
@@ -66,6 +67,7 @@ func CreateSplit(c *gin.Context) {
 		}
 		split = models.Split{
 			ExpenseID: expense.ID,
+			GroupID:   *expense.GroupID,
 			SplitAmt:  splitAmt,
 			OwedByID:  user.ID,
 			OwedToID:  userID.(uint),
@@ -145,4 +147,27 @@ func MarkSplitAsPaid(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Split marked as paid successfully"})
+}
+
+func GetGroupSummary(c *gin.Context) {
+	groupId := c.Param("id")
+	var group models.Group
+
+	userId, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var groupUsers []models.User
+	if err := database.Db.Where("group_id = ?", groupId).Find(&groupUsers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	for _, user := range groupUsers {
+		if user.ID == userId.(uint) {
+			group.Users = append(group.Users, &user)
+		}
+	}
 }

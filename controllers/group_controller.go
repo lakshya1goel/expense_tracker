@@ -36,7 +36,7 @@ func CreateGroup(c *gin.Context) {
 		}
 
 		var user models.User
-		result := database.Db.Where("phone = ?", member).First(&user)
+		result := database.Db.Where("mobile = ?", member).First(&user)
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				nonExistingUsers = append(nonExistingUsers, member)
@@ -49,11 +49,31 @@ func CreateGroup(c *gin.Context) {
 		}
 	}
 
+	userId, exits := c.Get("user_id")
+	if !exits {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var creator models.User
+	result := database.Db.Where("id = ?", userId).First(&creator)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": result.Error.Error()})
+		return
+	}
+
+	existingUsers = append(existingUsers, &creator)
+
 	if len(existingUsers) > 0 {
 		group := models.Group{
 			Name:        request.Name,
 			Description: request.Description,
 			Users:       existingUsers,
+			TotalUsers:  len(existingUsers),
 		}
 		if err := database.Db.Create(&group).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
@@ -61,7 +81,7 @@ func CreateGroup(c *gin.Context) {
 		}
 	}
 
-	// Handle non-existing Users (e.g., send invite links)
+	//TODO: Handle non-existing Users (e.g., send invite links)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Group created successfully"})
 }
 
