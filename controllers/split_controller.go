@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,8 +24,8 @@ func CreateSplit(c *gin.Context) {
 		return
 	}
 
-	var group models.Group
-	result := database.Db.Where("group_id = ?", request.GroupID).First(group)
+	var group *models.Group
+	result := database.Db.Preload("Users").Where("id = ?", request.GroupID).First(&group)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Group not found"})
@@ -33,8 +34,7 @@ func CreateSplit(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": result.Error.Error()})
 		return
 	}
-
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
 		return
@@ -42,36 +42,39 @@ func CreateSplit(c *gin.Context) {
 
 	expense := models.Expense{
 		Title:       request.Title,
-		Description: *request.Description,
+		Description: request.Description,
 		Amount:      request.Amount,
 		GroupID:     &request.GroupID,
-		PaidByCount:      1,
+		UserID:      uint(userID.(float64)),
+		PaidByCount: 1,
 	}
 	if err := database.Db.Create(&expense).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
-	splitAmt := expense.Amount / len(group.Users)
+	splitAmt := expense.Amount / group.TotalUsers
 	for _, user := range group.Users {
 		var split models.Split
-		if user.ID == userID.(uint) {
+		fmt.Printf("User ID: %d, UserID: %d\n", user.ID, uint(userID.(float64)))
+		if user.ID == uint(userID.(float64)) {
 			split = models.Split{
 				ExpenseID: expense.ID,
 				GroupID:   *expense.GroupID,
 				SplitAmt:  splitAmt,
 				OwedByID:  user.ID,
-				OwedToID:  userID.(uint),
+				OwedToID:  uint(userID.(float64)),
 				IsPaid:    true,
 			}
-		}
-		split = models.Split{
-			ExpenseID: expense.ID,
-			GroupID:   *expense.GroupID,
-			SplitAmt:  splitAmt,
-			OwedByID:  user.ID,
-			OwedToID:  userID.(uint),
-			IsPaid:    false,
+		} else {
+			split = models.Split{
+				ExpenseID: expense.ID,
+				GroupID:   *expense.GroupID,
+				SplitAmt:  splitAmt,
+				OwedByID:  user.ID,
+				OwedToID:  uint(userID.(float64)),
+				IsPaid:    false,
+			}
 		}
 		if err := database.Db.Create(&split).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
@@ -82,10 +85,10 @@ func CreateSplit(c *gin.Context) {
 	response := dto.SplitResponseDto{
 		ID:          expense.ID,
 		Title:       expense.Title,
-		Description: &expense.Description,
+		Description: expense.Description,
 		Amount:      expense.Amount,
 		GroupID:     *expense.GroupID,
-		PaidByCount:  expense.PaidByCount,
+		PaidByCount: expense.PaidByCount,
 		Splits:      expense.Splits,
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Split created successfully", "data": response})
