@@ -1,14 +1,12 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lakshya1goel/expense_tracker/database"
 	"github.com/lakshya1goel/expense_tracker/dto"
 	"github.com/lakshya1goel/expense_tracker/models"
-	"gorm.io/gorm"
 )
 
 func CreateSplit(c *gin.Context) {
@@ -24,16 +22,12 @@ func CreateSplit(c *gin.Context) {
 		return
 	}
 
-	var group *models.Group
-	result := database.Db.Preload("Users").Where("id = ?", request.GroupID).First(&group)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Group not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": result.Error.Error()})
+	var userIDs []uint
+	if err := database.Db.Table("group_users").Where("group_id = ?", request.GroupID).Pluck("user_id", &userIDs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
+
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
@@ -53,16 +47,15 @@ func CreateSplit(c *gin.Context) {
 		return
 	}
 
-	splitAmt := expense.Amount / group.TotalUsers
-	for _, user := range group.Users {
+	splitAmt := expense.Amount / len(userIDs)
+	for _, userId := range userIDs {
 		var split models.Split
-		fmt.Printf("User ID: %d, UserID: %d\n", user.ID, uint(userID.(float64)))
-		if user.ID == uint(userID.(float64)) {
+		if userId == uint(userID.(float64)) {
 			split = models.Split{
 				ExpenseID: expense.ID,
 				GroupID:   *expense.GroupID,
 				SplitAmt:  splitAmt,
-				OwedByID:  user.ID,
+				OwedByID:  userId,
 				OwedToID:  uint(userID.(float64)),
 				IsPaid:    true,
 			}
@@ -71,7 +64,7 @@ func CreateSplit(c *gin.Context) {
 				ExpenseID: expense.ID,
 				GroupID:   *expense.GroupID,
 				SplitAmt:  splitAmt,
-				OwedByID:  user.ID,
+				OwedByID:  userId,
 				OwedToID:  uint(userID.(float64)),
 				IsPaid:    false,
 			}
@@ -154,23 +147,67 @@ func MarkSplitAsPaid(c *gin.Context) {
 
 func GetGroupSummary(c *gin.Context) {
 	groupId := c.Param("id")
-	var group models.Group
 
-	userId, exists := c.Get("userID")
+	userId, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
 		return
 	}
 
-	var groupUsers []models.User
-	if err := database.Db.Where("group_id = ?", groupId).Find(&groupUsers).Error; err != nil {
+	var group models.Group
+	if err := database.Db.Preload("Users").Where("id = ?", groupId).First(&group).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
-	for _, user := range groupUsers {
-		if user.ID == userId.(uint) {
-			group.Users = append(group.Users, &user)
+	var settlements [](map[string]interface{})
+	var totalGroupOwedTo, totalGroupOwedBy float64
+
+	for _, user := range group.Users {
+		if user.ID == uint(userId.(float64)) {
+			continue
 		}
+
+		var owedToAmt, owedByAmt float64
+		if err := database.Db.Model(&models.Split{}).Where("owed_to_id = ? AND owed_by_id = ? AND group_id = ?", uint(userId.(float64)), user.ID, group.ID).Select("COALESCE(SUM(split_amt), 0)").Scan(&owedToAmt).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		if err := database.Db.Model(&models.Split{}).Where("owed_by_id = ? AND owed_to_id = ? AND group_id = ?", uint(userId.(float64)), user.ID, group.ID).Select("COALESCE(SUM(split_amt), 0)").Scan(&owedByAmt).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		var noOfSplits int64
+		if err := database.Db.Model(&models.Split{}).Where("(owed_by_id = ? OR owed_to_id = ?) AND NOT (owed_by_id = ? AND owed_to_id = ?)", uint(userId.(float64)), uint(userId.(float64)), uint(userId.(float64)), uint(userId.(float64))).Count(&noOfSplits).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+
+		if owedToAmt > owedByAmt {
+			totalGroupOwedTo += owedToAmt - owedByAmt
+		} else {
+			totalGroupOwedBy += owedByAmt - owedToAmt
+		}
+
+		settlement := map[string]interface{}{
+			"user_id":      user.ID,
+			"user_name":    user.Email,
+			"owed_to_amt":  owedToAmt,
+			"owed_by_amt":  owedByAmt,
+			"sttelement":   owedToAmt - owedByAmt,
+			"no_of_splits": noOfSplits,
+		}
+
+		settlements = append(settlements, settlement)
 	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Group summary fetched successfully",
+		"data": map[string]interface{}{
+			"settlements":         settlements,
+			"total_group_owed_to": totalGroupOwedTo,
+			"total_group_owed_by": totalGroupOwedBy,
+		},
+	})
 }
