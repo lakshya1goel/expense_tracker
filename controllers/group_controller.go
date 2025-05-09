@@ -36,7 +36,7 @@ func CreateGroup(c *gin.Context) {
 		}
 
 		var user models.User
-		result := database.Db.Where("phone = ?", member).First(&user)
+		result := database.Db.Where("mobile = ?", member).First(&user)
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				nonExistingUsers = append(nonExistingUsers, member)
@@ -49,12 +49,31 @@ func CreateGroup(c *gin.Context) {
 		}
 	}
 
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var creator models.User
+	result := database.Db.Where("id = ?", userId).First(&creator)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": result.Error.Error()})
+		return
+	}
+
+	existingUsers = append(existingUsers, &creator)
+
 	if len(existingUsers) > 0 {
 		group := models.Group{
-			Type:        "group",
 			Name:        request.Name,
 			Description: request.Description,
 			Users:       existingUsers,
+			TotalUsers:  len(existingUsers),
 		}
 		if err := database.Db.Create(&group).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
@@ -62,7 +81,7 @@ func CreateGroup(c *gin.Context) {
 		}
 	}
 
-	// Handle non-existing Users (e.g., send invite links)
+	//TODO: Handle non-existing Users (e.g., send invite links)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Group created successfully"})
 }
 
@@ -116,11 +135,6 @@ func AddUsers(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
-		return
-	}
-
-	if group.Type != "group" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Cannot add Users to a private chat"})
 		return
 	}
 
@@ -182,11 +196,6 @@ func RemoveUsers(c *gin.Context) {
 		return
 	}
 
-	if group.Type != "group" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Cannot remove Users from a private chat"})
-		return
-	}
-
 	var existingUsers []models.User
 	var nonExistingUsers []string
 
@@ -241,10 +250,6 @@ func UpdateGroup(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	if group.Type != "group" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Cannot update a private chat"})
-		return
-	}
 	group.Name = request.Name
 	group.Description = request.Description
 	group.UpdatedAt = time.Now()
@@ -264,10 +269,6 @@ func DeleteGroup(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
-		return
-	}
-	if group.Type != "group" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Cannot delete a private chat"})
 		return
 	}
 	if err := database.Db.Delete(&group).Error; err != nil {
@@ -309,7 +310,6 @@ func CreatePrivateChat(c *gin.Context) {
 
 	if len(existingUsers) > 0 {
 		group := models.Group{
-			Type:        "private",
 			Name:        request.Name,
 			Description: request.Description,
 			Users:       existingUsers,

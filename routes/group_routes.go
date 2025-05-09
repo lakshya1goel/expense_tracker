@@ -8,11 +8,11 @@ import (
 )
 
 func GroupRoutes(router *gin.RouterGroup) {
-	groupRouter := router.Group("/Grouproom")
+	groupRouter := router.Group("/group")
 	groupRouter.Use(middlewares.AuthMiddleware())
 	{
 		groupRouter.GET("/ws", ws.HandleWebSocket)
-		groupRouter.POST("/create-group", controllers.CreateGroup)
+		groupRouter.POST("/", controllers.CreateGroup)
 		groupRouter.GET("/get-all/:id", controllers.GetAllGroups)
 		groupRouter.GET("/get/:id", controllers.GetGroup)
 		groupRouter.POST("/add-member/:id", controllers.AddUsers)
