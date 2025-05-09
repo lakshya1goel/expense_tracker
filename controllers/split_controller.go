@@ -194,7 +194,7 @@ func GetGroupSummary(c *gin.Context) {
 			"user_name":    user.Email,
 			"owed_to_amt":  owedToAmt,
 			"owed_by_amt":  owedByAmt,
-			"sttelement":   owedToAmt - owedByAmt,
+			"settlement":   owedToAmt - owedByAmt,
 			"no_of_splits": noOfSplits,
 		}
 
@@ -210,4 +210,20 @@ func GetGroupSummary(c *gin.Context) {
 			"total_group_owed_by": totalGroupOwedBy,
 		},
 	})
+}
+
+func GetMonthlyExpenses(c *gin.Context) {
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var monthlyExpenses float64
+	if err := database.Db.Model(&models.Split{}).Where("owed_by_id = ? AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM NOW()) AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM NOW())", uint(userId.(float64))).Select("COALESCE(SUM(split_amt), 0)").Scan(&monthlyExpenses).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Monthly expenses fetched successfully", "data": monthlyExpenses})
 }

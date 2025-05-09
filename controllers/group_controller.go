@@ -49,8 +49,8 @@ func CreateGroup(c *gin.Context) {
 		}
 	}
 
-	userId, exits := c.Get("user_id")
-	if !exits {
+	userId, exists := c.Get("user_id")
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
 		return
 	}
