@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +15,7 @@ import (
 	"github.com/lakshya1goel/expense_tracker/models"
 	"github.com/lakshya1goel/expense_tracker/utils"
 	"golang.org/x/oauth2"
+	"google.golang.org/api/idtoken"
 )
 
 func GoogleSignIn(c *gin.Context) {
@@ -167,4 +170,24 @@ func GoogleCallback(c *gin.Context) {
 		RefreshTokenEx:   refreshTokenExp,
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "User logged in successfully", "data": response})
+}
+
+func VerifyIdToken(c *gin.Context) {
+	idToken := c.Query("id_token")
+	if idToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID token is required"})
+		return
+	}
+
+	payload, err := idtoken.Validate(context.Background(), idToken, os.Getenv("GOOGLE_CLIENT_ID"))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Print(payload.Claims)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid ID token: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "ID token verified successfully", "data": payload})
 }
