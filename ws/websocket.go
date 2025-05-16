@@ -45,5 +45,5 @@ func HandleWebSocket(c *gin.Context) {
 	}
 
 	pool.Register <- client
-	client.Read()
+	go client.Read()
 }
