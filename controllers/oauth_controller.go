@@ -1,12 +1,10 @@
 package controllers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +13,6 @@ import (
 	"github.com/lakshya1goel/expense_tracker/models"
 	"github.com/lakshya1goel/expense_tracker/utils"
 	"golang.org/x/oauth2"
-	"google.golang.org/api/idtoken"
 )
 
 func GoogleSignIn(c *gin.Context) {
@@ -33,13 +30,11 @@ func GoogleCallback(c *gin.Context) {
 
 	token, err := utils.GoogleOAuthConfig.Exchange(c, code)
 	if err != nil {
-		fmt.Println("Error exchanging code for token:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to exchange token: " + err.Error()})
 		return
 	}
 
 	client := utils.GoogleOAuthConfig.Client(c, token)
-	fmt.Println("Client created with token:", token)
 	userInfoResp, err := client.Get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to get user info: " + err.Error()})
@@ -47,25 +42,15 @@ func GoogleCallback(c *gin.Context) {
 	}
 	defer userInfoResp.Body.Close()
 
-	var userInfo struct {
-		Email         string `json:"email"`
-		VerifiedEmail bool   `json:"verified_email"`
-		Name          string `json:"name"`
-		Picture       string `json:"picture"`
-	}
+	var userInfo dto.UserInfo
 	body, _ := io.ReadAll(userInfoResp.Body)
 	json.Unmarshal(body, &userInfo)
-	fmt.Println("User info response body:", string(body))
 
-	phoneResp, err := client.Get("https://people.googleapis.com/v1/people/me?personFields=phoneNumbers")
 	var phone string
-	if err == nil {
+	if phoneResp, err := client.Get("https://people.googleapis.com/v1/people/me?personFields=phoneNumbers"); err == nil {
 		defer phoneResp.Body.Close()
-		var phoneData struct {
-			PhoneNumbers []struct {
-				Value string `json:"value"`
-			} `json:"phoneNumbers"`
-		}
+
+		var phoneData dto.PhoneData
 		phoneBody, _ := io.ReadAll(phoneResp.Body)
 		json.Unmarshal(phoneBody, &phoneData)
 		if len(phoneData.PhoneNumbers) > 0 {
@@ -170,24 +155,4 @@ func GoogleCallback(c *gin.Context) {
 		RefreshTokenEx:   refreshTokenExp,
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "User logged in successfully", "data": response})
-}
-
-func VerifyIdToken(c *gin.Context) {
-	idToken := c.Query("id_token")
-	if idToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID token is required"})
-		return
-	}
-
-	payload, err := idtoken.Validate(context.Background(), idToken, os.Getenv("GOOGLE_CLIENT_ID"))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Print(payload.Claims)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid ID token: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "ID token verified successfully", "data": payload})
 }

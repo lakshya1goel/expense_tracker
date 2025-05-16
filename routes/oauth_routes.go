@@ -9,7 +9,6 @@ func OauthRoutes(router *gin.RouterGroup) {
 	oauthRouter := router.Group("/oauth")
 	{
 		oauthRouter.GET("/google/login", controllers.GoogleSignIn)
-		oauthRouter.GET("/google/callback", controllers.GoogleCallback)
-		oauthRouter.POST("/google/idToken", controllers.VerifyIdToken)
+		oauthRouter.POST("/google/callback", controllers.GoogleCallback)
 	}
 }
