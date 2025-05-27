@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/lakshya1goel/expense_tracker/database"
 	"github.com/lakshya1goel/expense_tracker/models"
 )
 
@@ -73,7 +74,7 @@ func (pool *Pool) Start() {
 			for c := range pool.Groups[client.GroupID] {
 				err := c.Conn.WriteJSON(models.Message{
 					Type:   models.LeaveGroup,
-					Body:   "User Disconnected",
+					Body:   "User left the group",
 					Sender: 0,
 					GroupID: client.GroupID,
 				})
@@ -83,6 +84,11 @@ func (pool *Pool) Start() {
 			}
 		case msg := <-pool.Broadcast:
 			fmt.Println("Broadcasting message to group:", msg.GroupID)
+			fmt.Printf("msg: %+v\n", msg)
+			if err := database.Db.Create(&msg).Error; err != nil {
+				fmt.Println("DB insert error:", err)
+			}
+			
 			pool.mu.RLock()
 			for c := range pool.Groups[msg.GroupID] {
 				if c.UserId == msg.Sender {
