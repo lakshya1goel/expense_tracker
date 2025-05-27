@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lakshya1goel/expense_tracker/database"
 	"github.com/lakshya1goel/expense_tracker/dto"
 	"github.com/lakshya1goel/expense_tracker/models"
+	"github.com/lakshya1goel/expense_tracker/ws"
 )
 
 func CreateSplit(c *gin.Context) {
@@ -85,6 +88,34 @@ func CreateSplit(c *gin.Context) {
 		Splits:      expense.Splits,
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Split created successfully", "data": response})
+
+	var owedByIds []uint
+	for _, userId := range userIDs {
+		if userId != uint(userID.(float64)) {
+			owedByIds = append(owedByIds, userId)
+		}
+	}
+	splitWsDto := dto.SplitWsDto{
+		ID:            expense.ID,
+		CreatedAt:     expense.CreatedAt,
+		ExpenseAmount: expense.Amount,
+		SplitAmt:      splitAmt,
+		SenderID:      uint(userID.(float64)),
+		OwedByIDs:     owedByIds,
+	}
+
+	splitBodyBytes, err := json.Marshal(splitWsDto)
+	if err != nil {
+		fmt.Printf("Error marshaling splitWsDto:", err)
+		return
+	}
+
+	ws.GlobalPool.Broadcast <- models.Message{
+		Type:    models.SplitMessage,
+		Body:    string(splitBodyBytes),
+		GroupID: request.GroupID,
+		Sender:  uint(userID.(float64)),
+	}
 }
 
 func GetAllExpenses(c *gin.Context) {

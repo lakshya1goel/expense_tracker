@@ -43,19 +43,6 @@ func (pool *Pool) Start() {
 
 			fmt.Printf("New user joined group: %s, total users: %d\n", client.GroupID, len(pool.Groups[client.GroupID]))
 
-			// for c := range pool.Groups[client.GroupID] {
-			// 	if c != client {
-			// 		err := c.Conn.WriteJSON(models.Message{
-			// 			Type:   models.JoinGroup,
-			// 			Body:   "New User Joined",
-			// 			Sender: 0,
-			// 			GroupID:   client.GroupID,
-			// 		})
-			// 		if err != nil {
-			// 			fmt.Println("Write error:", err)
-			// 		}
-			// 	}
-			// }
 		case client := <-pool.Unregister:
 			if client.GroupID == 0 {
 				fmt.Println("Error: Client with invalid GroupID tried to unregister.")
@@ -71,17 +58,6 @@ func (pool *Pool) Start() {
 			}
 			pool.mu.Unlock()
 
-			// for c := range pool.Groups[client.GroupID] {
-			// 	err := c.Conn.WriteJSON(models.Message{
-			// 		Type:   models.LeaveGroup,
-			// 		Body:   "User left the group",
-			// 		Sender: 0,
-			// 		GroupID: client.GroupID,
-			// 	})
-			// 	if err != nil {
-			// 		fmt.Println("Write error:", err)
-			// 	}
-			// }
 		case msg := <-pool.Broadcast:
 			fmt.Println("Broadcasting message to group:", msg.GroupID)
 			fmt.Printf("msg: %+v\n", msg)
@@ -99,6 +75,50 @@ func (pool *Pool) Start() {
 				}
 			}
 			pool.mu.RUnlock()
+
+		// case msg := <-pool.Broadcast:
+		// 	fmt.Println("Broadcasting message to group:", msg.GroupID)
+		// 	fmt.Printf("msg: %+v\n", msg)
+
+		// 	pool.mu.RLock()
+		// 	clients := pool.Groups[msg.GroupID]
+		// 	pool.mu.RUnlock()
+
+		// 	switch msg.Type {
+		// 		case models.ChatMessage:
+		// 			for c := range clients {
+		// 				if c.UserId == msg.Sender {
+		// 					continue
+		// 				}
+		// 				if err := c.Conn.WriteJSON(msg); err != nil {
+		// 					fmt.Println("Broadcast write error:", err)
+		// 				}
+		// 			}
+		// 			if err := database.Db.Create(&msg).Error; err != nil {
+		// 				fmt.Println("DB insert error:", err)
+		// 			}
+		// 		case models.SplitMessage:
+		// 			var split models.Split
+		// 			err := json.Unmarshal([]byte(msg.Body), &split)
+		// 			if err != nil {
+		// 				fmt.Println("Invalid split data:", err)
+		// 				break
+		// 			}
+		// 			split.GroupID = msg.GroupID
+		// 			if err := database.Db.Create(&split).Error; err != nil {
+		// 				fmt.Println("DB insert error (split):", err)
+		// 			}
+		// 			for c := range clients {
+		// 				if c.UserId == msg.Sender {
+		// 					continue
+		// 				}
+		// 				if err := c.Conn.WriteJSON(msg); err != nil {
+		// 					fmt.Println("Broadcast write error:", err)
+		// 				}
+		// 			}
+		// 		default:
+		// 			fmt.Println("Unknown message type in broadcast")
+		// 	}
 		}
 	}
 }

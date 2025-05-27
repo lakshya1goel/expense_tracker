@@ -9,11 +9,11 @@ import (
 )
 
 type Client struct {
-	Conn   *websocket.Conn
-	Pool   *Pool
-	UserId uint
+	Conn    *websocket.Conn
+	Pool    *Pool
+	UserId  uint
 	GroupID uint
-	mu     sync.Mutex
+	mu      sync.Mutex
 }
 
 func (c *Client) Read() {
@@ -47,7 +47,7 @@ func (c *Client) Read() {
 			c.Pool.Unregister <- c
 			continue
 
-		case models.ChatMessage:
+		case models.ChatMessage, models.SplitMessage:
 			if c.GroupID == 0 {
 				fmt.Println("Client has not joined any group")
 				continue

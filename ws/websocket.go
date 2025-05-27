@@ -14,10 +14,11 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-var pool = NewPool()
+var GlobalPool *Pool
 
-func init() {
-	go pool.Start()
+func InitPool() {
+	GlobalPool = NewPool()
+	go GlobalPool.Start()
 }
 
 func HandleWebSocket(c *gin.Context) {
@@ -40,10 +41,10 @@ func HandleWebSocket(c *gin.Context) {
 
 	client := &Client{
 		Conn:   conn,
-		Pool:   pool,
+		Pool:   GlobalPool,
 		UserId: uint(userId),
 	}
 
-	pool.Register <- client
+	GlobalPool.Register <- client
 	go client.Read()
 }

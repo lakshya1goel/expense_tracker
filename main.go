@@ -6,6 +6,7 @@ import (
 	"github.com/lakshya1goel/expense_tracker/database"
 	"github.com/lakshya1goel/expense_tracker/routes"
 	"github.com/lakshya1goel/expense_tracker/utils"
+	"github.com/lakshya1goel/expense_tracker/ws"
 )
 
 func main() {
@@ -14,6 +15,7 @@ func main() {
 	}
 	database.ConnectDb()
 	utils.InitGoogleOAuth()
+	ws.InitPool()
 
 	router := gin.Default()
 	apiRouter := router.Group("/api")
