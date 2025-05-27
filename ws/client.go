@@ -45,7 +45,7 @@ func (c *Client) Read() {
 				continue
 			}
 			c.Pool.Unregister <- c
-			return
+			continue
 
 		case models.ChatMessage:
 			if c.GroupID == 0 {

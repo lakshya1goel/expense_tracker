@@ -43,19 +43,19 @@ func (pool *Pool) Start() {
 
 			fmt.Printf("New user joined group: %s, total users: %d\n", client.GroupID, len(pool.Groups[client.GroupID]))
 
-			for c := range pool.Groups[client.GroupID] {
-				if c != client {
-					err := c.Conn.WriteJSON(models.Message{
-						Type:   models.JoinGroup,
-						Body:   "New User Joined",
-						Sender: 0,
-						GroupID:   client.GroupID,
-					})
-					if err != nil {
-						fmt.Println("Write error:", err)
-					}
-				}
-			}
+			// for c := range pool.Groups[client.GroupID] {
+			// 	if c != client {
+			// 		err := c.Conn.WriteJSON(models.Message{
+			// 			Type:   models.JoinGroup,
+			// 			Body:   "New User Joined",
+			// 			Sender: 0,
+			// 			GroupID:   client.GroupID,
+			// 		})
+			// 		if err != nil {
+			// 			fmt.Println("Write error:", err)
+			// 		}
+			// 	}
+			// }
 		case client := <-pool.Unregister:
 			if client.GroupID == 0 {
 				fmt.Println("Error: Client with invalid GroupID tried to unregister.")
@@ -71,17 +71,17 @@ func (pool *Pool) Start() {
 			}
 			pool.mu.Unlock()
 
-			for c := range pool.Groups[client.GroupID] {
-				err := c.Conn.WriteJSON(models.Message{
-					Type:   models.LeaveGroup,
-					Body:   "User left the group",
-					Sender: 0,
-					GroupID: client.GroupID,
-				})
-				if err != nil {
-					fmt.Println("Write error:", err)
-				}
-			}
+			// for c := range pool.Groups[client.GroupID] {
+			// 	err := c.Conn.WriteJSON(models.Message{
+			// 		Type:   models.LeaveGroup,
+			// 		Body:   "User left the group",
+			// 		Sender: 0,
+			// 		GroupID: client.GroupID,
+			// 	})
+			// 	if err != nil {
+			// 		fmt.Println("Write error:", err)
+			// 	}
+			// }
 		case msg := <-pool.Broadcast:
 			fmt.Println("Broadcasting message to group:", msg.GroupID)
 			fmt.Printf("msg: %+v\n", msg)
