@@ -86,20 +86,39 @@ func CreateGroup(c *gin.Context) {
 }
 
 func GetAllGroups(c *gin.Context) {
-	userId := c.Param("id")
-	var groups []models.Group
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
 
-	if err := database.Db.Preload("Users").Where("Users.id = ?", userId).Find(&groups).Error; err != nil {
+	var groupIDs []uint
+	if err := database.Db.Table("group_users").Where("user_id = ?", userId).Pluck("group_id", &groupIDs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
-	if len(groups) == 0 {
+	if len(groupIDs) == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "No groups found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": groups})
+	var groups []models.Group
+	if err := database.Db.Where("id IN ?", groupIDs).Preload("Users").Find(&groups).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	var response []gin.H
+	for _, group := range groups {
+		response = append(response, gin.H{
+			"id":          group.ID,
+			"name":        group.Name,
+			"description": group.Description,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Groups fetched successfully!", "data": response})
 }
 
 func GetGroup(c *gin.Context) {

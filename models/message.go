@@ -16,4 +16,5 @@ const (
 	JoinGroup   = "join-group"
 	LeaveGroup  = "leave-group"
 	ChatMessage = "message"
+	SplitMessage = "split-message"
 )
