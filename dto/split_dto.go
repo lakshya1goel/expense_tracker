@@ -31,3 +31,9 @@ type SplitWsDto struct {
 	SenderID uint     `json:"sender_id"`
 	OwedByIDs []uint  `json:"owed_by_ids"`
 }
+
+type MarkSplitAsPaidDto struct {
+	ExpenseID uint `json:"expense_id"`
+	OwedByID uint `json:"owed_by_id"`
+	OwedToID uint `json:"owed_to_id"`
+}
