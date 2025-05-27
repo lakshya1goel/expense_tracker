@@ -28,97 +28,71 @@ func NewPool() *Pool {
 func (pool *Pool) Start() {
 	for {
 		select {
-		case client := <-pool.Register:
-			if client.GroupID == 0 {
-				fmt.Println("Error: Client has not joined a valid group. Skipping registration.")
-				continue
-			}
-
-			pool.mu.Lock()
-			if _, ok := pool.Groups[client.GroupID]; !ok {
-				pool.Groups[client.GroupID] = make(map[*Client]bool)
-			}
-			pool.Groups[client.GroupID][client] = true
-			pool.mu.Unlock()
-
-			fmt.Printf("New user joined group: %s, total users: %d\n", client.GroupID, len(pool.Groups[client.GroupID]))
-
-		case client := <-pool.Unregister:
-			if client.GroupID == 0 {
-				fmt.Println("Error: Client with invalid GroupID tried to unregister.")
-				continue
-			}
-
-			pool.mu.Lock()
-			if _, ok := pool.Groups[client.GroupID]; ok {
-				delete(pool.Groups[client.GroupID], client)
-				if len(pool.Groups[client.GroupID]) == 0 {
-					delete(pool.Groups, client.GroupID)
-				}
-			}
-			pool.mu.Unlock()
-
-		case msg := <-pool.Broadcast:
-			fmt.Println("Broadcasting message to group:", msg.GroupID)
-			fmt.Printf("msg: %+v\n", msg)
-			if err := database.Db.Create(&msg).Error; err != nil {
-				fmt.Println("DB insert error:", err)
-			}
-			
-			pool.mu.RLock()
-			for c := range pool.Groups[msg.GroupID] {
-				if c.UserId == msg.Sender {
+			case client := <-pool.Register:
+				if client.GroupID == 0 {
+					fmt.Println("Error: Client has not joined a valid group. Skipping registration.")
 					continue
 				}
-				if err := c.Conn.WriteJSON(msg); err != nil {
-					fmt.Println("Broadcast write error:", err)
+
+				pool.mu.Lock()
+				if _, ok := pool.Groups[client.GroupID]; !ok {
+					pool.Groups[client.GroupID] = make(map[*Client]bool)
 				}
-			}
-			pool.mu.RUnlock()
+				pool.Groups[client.GroupID][client] = true
+				pool.mu.Unlock()
 
-		// case msg := <-pool.Broadcast:
-		// 	fmt.Println("Broadcasting message to group:", msg.GroupID)
-		// 	fmt.Printf("msg: %+v\n", msg)
+				fmt.Printf("New user joined group: %s, total users: %d\n", client.GroupID, len(pool.Groups[client.GroupID]))
 
-		// 	pool.mu.RLock()
-		// 	clients := pool.Groups[msg.GroupID]
-		// 	pool.mu.RUnlock()
+			case client := <-pool.Unregister:
+				if client.GroupID == 0 {
+					fmt.Println("Error: Client with invalid GroupID tried to unregister.")
+					continue
+				}
 
-		// 	switch msg.Type {
-		// 		case models.ChatMessage:
-		// 			for c := range clients {
-		// 				if c.UserId == msg.Sender {
-		// 					continue
-		// 				}
-		// 				if err := c.Conn.WriteJSON(msg); err != nil {
-		// 					fmt.Println("Broadcast write error:", err)
-		// 				}
-		// 			}
-		// 			if err := database.Db.Create(&msg).Error; err != nil {
-		// 				fmt.Println("DB insert error:", err)
-		// 			}
-		// 		case models.SplitMessage:
-		// 			var split models.Split
-		// 			err := json.Unmarshal([]byte(msg.Body), &split)
-		// 			if err != nil {
-		// 				fmt.Println("Invalid split data:", err)
-		// 				break
-		// 			}
-		// 			split.GroupID = msg.GroupID
-		// 			if err := database.Db.Create(&split).Error; err != nil {
-		// 				fmt.Println("DB insert error (split):", err)
-		// 			}
-		// 			for c := range clients {
-		// 				if c.UserId == msg.Sender {
-		// 					continue
-		// 				}
-		// 				if err := c.Conn.WriteJSON(msg); err != nil {
-		// 					fmt.Println("Broadcast write error:", err)
-		// 				}
-		// 			}
-		// 		default:
-		// 			fmt.Println("Unknown message type in broadcast")
-		// 	}
+				pool.mu.Lock()
+				if _, ok := pool.Groups[client.GroupID]; ok {
+					delete(pool.Groups[client.GroupID], client)
+					if len(pool.Groups[client.GroupID]) == 0 {
+						delete(pool.Groups, client.GroupID)
+					}
+				}
+				pool.mu.Unlock()
+
+			case msg := <-pool.Broadcast:
+				fmt.Println("Broadcasting message to group:", msg.GroupID)
+				fmt.Printf("msg: %+v\n", msg)
+			
+				pool.mu.RLock()
+				clients := pool.Groups[msg.GroupID]
+				pool.mu.RUnlock()
+			
+				switch msg.Type {
+					case models.ChatMessage:
+						if err := database.Db.Create(&msg).Error; err != nil {
+							fmt.Println("DB insert error:", err)
+						}
+						for c := range clients {
+							if c.UserId == msg.Sender {
+								continue
+							}
+							if err := c.Conn.WriteJSON(msg); err != nil {
+								fmt.Println("Broadcast write error:", err)
+							}
+						}
+			
+					case models.SplitMessage:
+						for c := range clients {
+							if c.UserId == msg.Sender {
+								continue
+							}
+							if err := c.Conn.WriteJSON(msg); err != nil {
+								fmt.Println("Broadcast write error:", err)
+							}
+						}
+			
+					default:
+						fmt.Println("Unknown message type in broadcast")
+					}
 		}
 	}
 }
