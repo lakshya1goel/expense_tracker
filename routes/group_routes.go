@@ -14,6 +14,7 @@ func GroupRoutes(router *gin.RouterGroup) {
 		groupRouter.GET("/ws", ws.HandleWebSocket)
 		groupRouter.POST("/", controllers.CreateGroup)
 		groupRouter.GET("/", controllers.GetAllGroups)
+		groupRouter.GET("/history/:id", controllers.GetGroupHistory)
 		groupRouter.GET("/get/:id", controllers.GetGroup)
 		groupRouter.POST("/add-member/:id", controllers.AddUsers)
 		groupRouter.DELETE("/remove-member/:id", controllers.RemoveUsers)
