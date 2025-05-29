@@ -121,6 +121,27 @@ func GetAllGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Groups fetched successfully!", "data": response})
 }
 
+func GetGroupHistory(c *gin.Context) {
+	groupId := c.Param("id")
+	var group models.Group
+	if err := database.Db.Preload("Expenses").Preload("Messages").Where("id = ?", groupId).First(&group).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Group not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
+		"id":          group.ID,
+		"name":        group.Name,
+		"description": group.Description,
+		"expenses":    group.Expenses,
+		"messages":    group.Messages,
+		"total_users": group.TotalUsers,
+	}})
+}
+
 func GetGroup(c *gin.Context) {
 	groupId := c.Param("id")
 	var group models.Group

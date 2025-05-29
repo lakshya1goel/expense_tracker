@@ -10,6 +10,7 @@ import (
 	"github.com/lakshya1goel/expense_tracker/dto"
 	"github.com/lakshya1goel/expense_tracker/models"
 	"github.com/lakshya1goel/expense_tracker/ws"
+	"gorm.io/gorm"
 )
 
 func CreateSplit(c *gin.Context) {
@@ -147,9 +148,17 @@ func GetSplit(c *gin.Context) {
 }
 
 func MarkSplitAsPaid(c *gin.Context) {
-	splitId := c.Param("id")
+	var request dto.MarkSplitAsPaidDto
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
 	var split models.Split
-	if err := database.Db.Where("id = ?", splitId).First(&split).Error; err != nil {
+	if err := database.Db.Where("expense_id = ? AND owed_to_id = ? AND owed_by_id = ?", request.ExpenseID, request.OwedToID, request.OwedByID).First(&split).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Split not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}

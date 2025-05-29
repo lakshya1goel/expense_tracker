@@ -25,6 +25,7 @@ func main() {
 		routes.OauthRoutes(apiRouter)
 		routes.GroupRoutes(apiRouter)
 		routes.SplitRoutes(apiRouter)
+		routes.WsRoutes(apiRouter)
 	}
 
 	router.Run(":8000")
