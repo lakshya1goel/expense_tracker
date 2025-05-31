@@ -13,8 +13,8 @@ type Message struct {
 }
 
 const (
-	JoinGroup   = "join-group"
-	LeaveGroup  = "leave-group"
-	ChatMessage = "message"
+	JoinGroup    = "join-group"
+	LeaveGroup   = "leave-group"
+	ChatMessage  = "message"
 	SplitMessage = "split-message"
 )

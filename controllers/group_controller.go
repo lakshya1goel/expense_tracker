@@ -137,17 +137,17 @@ func GetGroupHistory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, 
-	"message": "Group history fetched successfully",
-	"data": gin.H{
-		"id":          group.ID,
-		"user_id":     userId,
-		"name":        group.Name,
-		"description": group.Description,
-		"expenses":    group.Expenses,
-		"messages":    group.Messages,
-		"total_users": group.TotalUsers,
-	}})
+	c.JSON(http.StatusOK, gin.H{"success": true,
+		"message": "Group history fetched successfully",
+		"data": gin.H{
+			"id":          group.ID,
+			"user_id":     userId,
+			"name":        group.Name,
+			"description": group.Description,
+			"expenses":    group.Expenses,
+			"messages":    group.Messages,
+			"total_users": group.TotalUsers,
+		}})
 }
 
 func GetGroup(c *gin.Context) {

@@ -354,3 +354,72 @@ func VerifyMobile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Mobile verified successfully", "data": response})
 }
+
+func GetAccessTokenFromRefreshToken(c *gin.Context) {
+	var request dto.RefreshTokenDto
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if request.RefreshToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Refresh token is required"})
+		return
+	}
+
+	claims, err := utils.VerifyToken(request.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid authentication token"})
+		return
+	}
+
+	userId := claims["user_id"]
+
+	var user models.User
+	result := database.Db.First(&user, userId)
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "User not found"})
+		return
+	}
+
+	accessTokenExp := time.Now().Add(time.Hour * 24).Unix()
+	accessToken, err := utils.GenerateToken(user.ID, accessTokenExp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to generate access token " + err.Error()})
+		return
+	}
+
+	response := dto.AccessTokenResponseDto{
+		ID:            user.ID,
+		AccessToken:   accessToken,
+		AccessTokenEx: accessTokenExp,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Access token generated successfully", "data": response})
+}
+
+func GetUserDetails(c *gin.Context) {
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var user models.User
+	result := database.Db.First(&user, userId)
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "User not found"})
+		return
+	}
+
+	response := dto.UserResponseDto{
+		ID:               user.ID,
+		Email:            user.Email,
+		Mobile:           user.Mobile,
+		IsEmailVerified:  user.IsEmailVerified,
+		IsMobileVerified: user.IsMobileVerified,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "User details fetched successfully", "data": response})
+}

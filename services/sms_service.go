@@ -19,7 +19,7 @@ func SendSms(to string, otp string) error {
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
-	} 
+	}
 	fmt.Println("SMS sent successfully!")
 	return nil
 }

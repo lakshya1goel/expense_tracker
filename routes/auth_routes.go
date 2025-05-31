@@ -13,5 +13,7 @@ func AuthRoutes(router *gin.RouterGroup) {
 		authRouter.POST("/send-otp", controllers.SendOtp)
 		authRouter.POST("/verify-mail", controllers.VerifyMail)
 		authRouter.POST("/verify-mobile", controllers.VerifyMobile)
+		authRouter.POST("/access-token", controllers.GetAccessTokenFromRefreshToken)
+		authRouter.GET("/user", controllers.GetUserDetails)
 	}
 }
