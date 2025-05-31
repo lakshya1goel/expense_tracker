@@ -122,6 +122,11 @@ func GetAllGroups(c *gin.Context) {
 }
 
 func GetGroupHistory(c *gin.Context) {
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
 	groupId := c.Param("id")
 	var group models.Group
 	if err := database.Db.Preload("Expenses").Preload("Messages").Where("id = ?", groupId).First(&group).Error; err != nil {
@@ -132,8 +137,11 @@ func GetGroupHistory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
+	c.JSON(http.StatusOK, gin.H{"success": true, 
+	"message": "Group history fetched successfully",
+	"data": gin.H{
 		"id":          group.ID,
+		"user_id":     userId,
 		"name":        group.Name,
 		"description": group.Description,
 		"expenses":    group.Expenses,
