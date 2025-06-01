@@ -20,6 +20,5 @@ func GroupRoutes(router *gin.RouterGroup) {
 		groupRouter.DELETE("/remove-member/:id", controllers.RemoveUsers)
 		groupRouter.PUT("/:id", controllers.UpdateGroup)
 		groupRouter.DELETE("/:id", controllers.DeleteGroup)
-		groupRouter.POST("create-private", controllers.CreatePrivateChat)
 	}
 }
