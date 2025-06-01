@@ -20,7 +20,6 @@ func main() {
 	router := gin.Default()
 	apiRouter := router.Group("/api")
 	{
-		routes.ExpenseRoutes(apiRouter)
 		routes.AuthRoutes(apiRouter)
 		routes.OauthRoutes(apiRouter)
 		routes.GroupRoutes(apiRouter)

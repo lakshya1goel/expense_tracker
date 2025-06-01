@@ -93,7 +93,7 @@ func GetAllGroups(c *gin.Context) {
 	}
 
 	var groupIDs []uint
-	if err := database.Db.Table("group_users").Where("user_id = ?", userId).Pluck("group_id", &groupIDs).Error; err != nil {
+	if err := database.Db.Table("group_users").Where("user_id = ? AND type = ?", userId, "group").Pluck("group_id", &groupIDs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
@@ -324,51 +324,4 @@ func DeleteGroup(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Group deleted successfully"})
-}
-
-func CreatePrivateChat(c *gin.Context) {
-	var request dto.CreateChatDto
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
-		return
-	}
-
-	var existingUsers []*models.User
-	var nonExistingUsers []string
-
-	for _, member := range request.Users {
-		if member == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Member phone no. is required"})
-			return
-		}
-
-		var user models.User
-		result := database.Db.Where("phone = ?", member).First(&user)
-		if result.Error != nil {
-			if result.Error == gorm.ErrRecordNotFound {
-				nonExistingUsers = append(nonExistingUsers, member)
-			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": result.Error.Error()})
-				return
-			}
-		} else {
-			existingUsers = append(existingUsers, &user)
-		}
-	}
-
-	if len(existingUsers) > 0 {
-		group := models.Group{
-			Name:        request.Name,
-			Description: request.Description,
-			Users:       existingUsers,
-		}
-		if err := database.Db.Create(&group).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
-			return
-		}
-	}
-
-	// Handle non-existing Users (e.g., send invite links)
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Private chat created successfully"})
-
 }

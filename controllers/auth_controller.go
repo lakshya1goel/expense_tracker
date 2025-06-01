@@ -181,6 +181,12 @@ func Login(c *gin.Context) {
 		RefreshTokenEx:   refreshTokenExp,
 	}
 
+	status, err := utils.CreatePrivateGroup(user.ID)
+	if err != nil {
+		c.JSON(status, gin.H{"success": false, "message": "Failed to create private group " + err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "User logged in successfully", "data": response})
 }
 
@@ -350,6 +356,12 @@ func VerifyMobile(c *gin.Context) {
 		AccessTokenEx:    accessTokenExp,
 		RefreshToken:     refreshToken,
 		RefreshTokenEx:   refreshTokenExp,
+	}
+
+	status, err := utils.CreatePrivateGroup(user.ID)
+	if err != nil {
+		c.JSON(status, gin.H{"success": false, "message": "Failed to create private group " + err.Error()})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Mobile verified successfully", "data": response})
