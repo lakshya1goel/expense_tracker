@@ -63,9 +63,9 @@ func Register(c *gin.Context) {
 
 		otpModel := models.Otp{
 			Email:     request.Email,
-			Mobile:    request.Mobile,
+			Mobile:    &request.Mobile,
 			EmailOtp:  emailOtp,
-			MobileOtp: mobileOtp,
+			MobileOtp: &mobileOtp,
 			OtpExp:    time.Now().Add(time.Minute * 5).Unix(),
 		}
 
@@ -104,9 +104,9 @@ func Register(c *gin.Context) {
 
 	otpModel := models.Otp{
 		Email:     request.Email,
-		Mobile:    request.Mobile,
+		Mobile:    &request.Mobile,
 		EmailOtp:  emailOtp,
-		MobileOtp: mobileOtp,
+		MobileOtp: &mobileOtp,
 		OtpExp:    time.Now().Add(time.Minute * 5).Unix(),
 	}
 
@@ -242,9 +242,9 @@ func SendOtp(c *gin.Context) {
 
 	otpModel := models.Otp{
 		Email:     request.Email,
-		Mobile:    request.Mobile,
+		Mobile:    &request.Mobile,
 		EmailOtp:  emailOtp,
-		MobileOtp: mobileOtp,
+		MobileOtp: &mobileOtp,
 		OtpExp:    time.Now().Add(time.Minute * 5).Unix(),
 	}
 
@@ -312,7 +312,7 @@ func VerifyMobile(c *gin.Context) {
 		return
 	}
 
-	if otpModel.MobileOtp != request.MobileOtp || otpModel.OtpExp < time.Now().Unix() {
+	if *otpModel.MobileOtp != request.MobileOtp || otpModel.OtpExp < time.Now().Unix() {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid OTP"})
 		return
 	}
@@ -434,4 +434,97 @@ func GetUserDetails(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "User details fetched successfully", "data": response})
+}
+
+func ForgotPassword(c *gin.Context) {
+	var request dto.SendOtpDto
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if request.Email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Email is required"})
+		return
+	}
+
+	var user models.User
+	if err := database.Db.Where("email = ?", request.Email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Database error: " + err.Error()})
+		return
+	}
+	emailOtp := utils.GenerateOtp(6)
+	if err := services.SendMail(request.Email, "OTP for password reset", emailOtp); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send OTP " + err.Error()})
+		return
+	}
+	otpModel := models.Otp{
+		Email:    request.Email,
+		EmailOtp: emailOtp,
+		OtpExp:   time.Now().Add(time.Minute * 5).Unix(),
+	}
+	database.Db.Save(&otpModel)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully"})
+}
+
+func VerifyResetPasswordOtp(c *gin.Context) {
+	var request dto.VerifyMailDto
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	var otpModel models.Otp
+	if err := database.Db.Where("email = ?", request.Email).First(&otpModel).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "User not found"})
+		return
+	}
+
+	if otpModel.EmailOtp != request.EmailOtp || otpModel.OtpExp < time.Now().Unix() {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid OTP"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP verified successfully"})
+}
+
+func ResetPassord(c *gin.Context) {
+	var request dto.RegisterDto
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if request.Email == "" || request.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Email and password are required"})
+		return
+	}
+
+	hashedPassword, err := utils.HashPassword(request.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to hash password " + err.Error()})
+		return
+	}
+
+	var user models.User
+	if err := database.Db.Where("email = ?", request.Email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Database error: " + err.Error()})
+		return
+	}
+
+	user.Password = hashedPassword
+	if err := database.Db.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update password " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Password reset successfully"})
 }
