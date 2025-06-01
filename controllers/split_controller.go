@@ -209,11 +209,11 @@ func GetGroupSummary(c *gin.Context) {
 		}
 
 		var owedToAmt, owedByAmt float64
-		if err := database.Db.Model(&models.Split{}).Where("owed_to_id = ? AND owed_by_id = ? AND group_id = ?", uint(userId.(float64)), user.ID, group.ID).Select("COALESCE(SUM(split_amt), 0)").Scan(&owedToAmt).Error; err != nil {
+		if err := database.Db.Model(&models.Split{}).Where("owed_to_id = ? AND owed_by_id = ? AND group_id = ? AND is_paid = false", uint(userId.(float64)), user.ID, group.ID).Select("COALESCE(SUM(split_amt), 0)").Scan(&owedToAmt).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 			return
 		}
-		if err := database.Db.Model(&models.Split{}).Where("owed_by_id = ? AND owed_to_id = ? AND group_id = ?", uint(userId.(float64)), user.ID, group.ID).Select("COALESCE(SUM(split_amt), 0)").Scan(&owedByAmt).Error; err != nil {
+		if err := database.Db.Model(&models.Split{}).Where("owed_by_id = ? AND owed_to_id = ? AND group_id = ? AND is_paid = false", uint(userId.(float64)), user.ID, group.ID).Select("COALESCE(SUM(split_amt), 0)").Scan(&owedByAmt).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 			return
 		}
@@ -253,17 +253,42 @@ func GetGroupSummary(c *gin.Context) {
 }
 
 func GetMonthlyExpenses(c *gin.Context) {
+	var request dto.MonthlyExpenseRequestDto
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
 	userId, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
 		return
 	}
 
-	var monthlyExpenses float64
-	if err := database.Db.Model(&models.Split{}).Where("owed_by_id = ? AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM NOW()) AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM NOW())", uint(userId.(float64))).Select("COALESCE(SUM(split_amt), 0)").Scan(&monthlyExpenses).Error; err != nil {
+	var spentAmt float64
+	var owedByAmt float64
+	var owedToAmt float64
+	if err := database.Db.Model(&models.Split{}).Where("owed_by_id = ? AND owed_to_id = ? AND EXTRACT(MONTH FROM created_at) = ? AND EXTRACT(YEAR FROM created_at) = ?", uint(userId.(float64)), uint(userId.(float64)), request.Month, request.Year).Select("COALESCE(SUM(split_amt), 0)").Scan(&spentAmt).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Monthly expenses fetched successfully", "data": monthlyExpenses})
+	if err := database.Db.Model(&models.Split{}).Where("owed_to_id = ? AND owed_by_id != ? AND is_paid = ? AND EXTRACT(MONTH FROM created_at) = ? AND EXTRACT(YEAR FROM created_at) = ?", uint(userId.(float64)), uint(userId.(float64)), false, request.Month, request.Year).Select("COALESCE(SUM(split_amt), 0)").Scan(&owedToAmt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if err := database.Db.Model(&models.Split{}).Where("owed_by_id = ? AND owed_to_id != ? AND is_paid = ? AND EXTRACT(MONTH FROM created_at) = ? AND EXTRACT(YEAR FROM created_at) = ?", uint(userId.(float64)), uint(userId.(float64)), false, request.Month, request.Year).Select("COALESCE(SUM(split_amt), 0)").Scan(&owedByAmt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	response := dto.MonthlyExpenseResponseDto{
+		Month:        request.Month,
+		Year:         request.Year,
+		SpentAmout:   spentAmt,
+		OwedToAmount: owedToAmt,
+		OwedByAmount: owedByAmt,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Monthly expenses fetched successfully", "data": response})
 }
