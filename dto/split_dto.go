@@ -13,6 +13,13 @@ type CreateSplitDto struct {
 	Description *string `json:"description"`
 }
 
+type CreatePersonalExpenseDto struct {
+	GroupID     uint    `json:"group_id"`
+	Amount      int     `json:"amount"`
+	Title       string  `json:"title"`
+	Description *string `json:"description"`
+}
+
 type SplitResponseDto struct {
 	ID          uint            `json:"id"`
 	Title       string          `json:"title"`

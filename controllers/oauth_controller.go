@@ -155,7 +155,7 @@ func GoogleCallback(c *gin.Context) {
 		RefreshTokenEx:   refreshTokenExp,
 	}
 
-	status, err := utils.CreatePrivateGroup(user.ID)
+	status, err := utils.CreatePrivateGroup(newUser.ID)
 	if err != nil {
 		c.JSON(status, gin.H{"success": false, "message": "Failed to create private group " + err.Error()})
 		return

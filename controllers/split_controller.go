@@ -119,6 +119,83 @@ func CreateSplit(c *gin.Context) {
 	}
 }
 
+func CreatePersonalExpense(c *gin.Context) {
+	var request dto.CreatePersonalExpenseDto
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var groupIDs []uint
+
+	if err := database.Db.Table("group_users").Where("user_id = ?", userID).Pluck("group_id", &groupIDs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	var groupId uint
+	if len(groupIDs) > 0 {
+		type result struct {
+			ID   uint
+			Type string
+		}
+		var groups []result
+		if err := database.Db.Table("groups").Select("id, type").Where("id IN ?", groupIDs).Find(&groups).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		for _, g := range groups {
+			if g.Type == "private" {
+				groupId = g.ID
+				break
+			}
+		}
+	}
+	expense := models.Expense{
+		Title:       request.Title,
+		Description: request.Description,
+		Amount:      request.Amount,
+		GroupID:     &groupId,
+		UserID:      uint(userID.(float64)),
+		PaidByCount: 1,
+	}
+	if err := database.Db.Create(&expense).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	split := models.Split{
+		ExpenseID: expense.ID,
+		GroupID:   *expense.GroupID,
+		SplitAmt:  expense.Amount,
+		OwedByID:  uint(userID.(float64)),
+		OwedToID:  uint(userID.(float64)),
+		IsPaid:    true,
+	}
+	if err := database.Db.Create(&split).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	response := dto.SplitResponseDto{
+		ID:          expense.ID,
+		Title:       expense.Title,
+		Description: expense.Description,
+		Amount:      expense.Amount,
+		GroupID:     *expense.GroupID,
+		PaidByCount: expense.PaidByCount,
+		Splits:      expense.Splits,
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Split created successfully", "data": response})
+}
+
 func GetAllExpenses(c *gin.Context) {
 	groupId := c.Param("id")
 	var expenses []models.Expense

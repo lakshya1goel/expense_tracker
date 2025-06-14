@@ -93,9 +93,28 @@ func GetAllGroups(c *gin.Context) {
 	}
 
 	var groupIDs []uint
-	if err := database.Db.Table("group_users").Where("user_id = ? AND type = ?", userId, "group").Pluck("group_id", &groupIDs).Error; err != nil {
+	if err := database.Db.Table("group_users").Where("user_id = ?", userId).Pluck("group_id", &groupIDs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
+	}
+
+	var validGroupIDs []uint
+	if len(groupIDs) > 0 {
+		type result struct {
+			ID   uint
+			Type string
+		}
+		var groups []result
+		if err := database.Db.Table("groups").Select("id, type").Where("id IN ?", groupIDs).Find(&groups).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		for _, g := range groups {
+			if g.Type == "group" {
+				validGroupIDs = append(validGroupIDs, g.ID)
+			}
+		}
+		groupIDs = validGroupIDs
 	}
 
 	if len(groupIDs) == 0 {

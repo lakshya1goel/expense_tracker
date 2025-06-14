@@ -16,5 +16,6 @@ func SplitRoutes(router *gin.RouterGroup) {
 		splitRouter.GET("/:id", controllers.GetSplit)
 		splitRouter.POST("/mark-as-paid/:id", controllers.MarkSplitAsPaid)
 		splitRouter.POST("/monthly-expenses/", controllers.GetMonthlyExpenses)
+		splitRouter.POST("/personal-expense", controllers.CreatePersonalExpense)
 	}
 }
