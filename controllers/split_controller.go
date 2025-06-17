@@ -107,7 +107,7 @@ func CreateSplit(c *gin.Context) {
 
 	splitBodyBytes, err := json.Marshal(splitWsDto)
 	if err != nil {
-		fmt.Printf("Error marshaling splitWsDto:", err)
+		fmt.Printf("Error marshaling splitWsDto: %v\n", err)
 		return
 	}
 
@@ -121,7 +121,6 @@ func CreateSplit(c *gin.Context) {
 
 func CreatePersonalExpense(c *gin.Context) {
 	var request dto.CreatePersonalExpenseDto
-
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
@@ -134,7 +133,6 @@ func CreatePersonalExpense(c *gin.Context) {
 	}
 
 	var groupIDs []uint
-
 	if err := database.Db.Table("group_users").Where("user_id = ?", userID).Pluck("group_id", &groupIDs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
@@ -196,18 +194,47 @@ func CreatePersonalExpense(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Split created successfully", "data": response})
 }
 
-func GetAllExpenses(c *gin.Context) {
-	groupId := c.Param("id")
+func GetAllPersonalExpenses(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var groupIDs []uint
+	if err := database.Db.Table("group_users").Where("user_id = ?", userID).Pluck("group_id", &groupIDs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	var groupId uint
+	if len(groupIDs) > 0 {
+		type result struct {
+			ID   uint
+			Type string
+		}
+		var groups []result
+		if err := database.Db.Table("groups").Select("id, type").Where("id IN ?", groupIDs).Find(&groups).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		for _, g := range groups {
+			if g.Type == "private" {
+				groupId = g.ID
+				break
+			}
+		}
+	}
 	var expenses []models.Expense
 	if err := database.Db.Where("group_id = ?", groupId).Find(&expenses).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 	if len(expenses) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "No expenses found"})
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "No personal expenses found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Expenses fetched successfully", "data": expenses})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Personal expenses fetched successfully", "data": expenses})
 }
 
 func GetSplit(c *gin.Context) {

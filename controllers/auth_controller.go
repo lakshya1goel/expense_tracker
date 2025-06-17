@@ -85,11 +85,6 @@ func Register(c *gin.Context) {
 		Password: hashedPassword,
 	}
 
-	if err := database.Db.Create(&newUser).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to create user " + err.Error()})
-		return
-	}
-
 	emailOtp := utils.GenerateOtp(6)
 	mobileOtp := utils.GenerateOtp(6)
 	if err := services.SendMail(request.Email, "OTP for email verification", emailOtp); err != nil {
@@ -111,6 +106,10 @@ func Register(c *gin.Context) {
 	}
 
 	database.Db.Save(&otpModel)
+	if err := database.Db.Create(&newUser).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to create user " + err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "OTP sent successfully"})
 }
 
