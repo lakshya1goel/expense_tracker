@@ -18,6 +18,11 @@ func main() {
 	ws.InitPool()
 
 	router := gin.Default()
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Welcome to Expense Tracker API",
+		})
+	})
 	apiRouter := router.Group("/api")
 	{
 		routes.AuthRoutes(apiRouter)
