@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lakshya1goel/expense_tracker/database"
@@ -395,4 +396,108 @@ func GetMonthlyExpenses(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Monthly expenses fetched successfully", "data": response})
+}
+
+func GetWeeklyExpenses(c *gin.Context) {
+	var request dto.WeeklyExpenseRequestDto
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var spentAmt float64
+	var owedByAmt float64
+	var owedToAmt float64
+	location := c.MustGet("location").(string)
+	loc, _ := time.LoadLocation(location)
+	weekStart := time.Date(request.Year, time.Month(request.Month), request.Week, 0, 0, 0, 0, loc)
+	weekEnd := weekStart.AddDate(0, 0, 6)
+
+	if err := database.Db.Model(&models.Split{}).
+		Where("owed_by_id = ? AND owed_to_id = ? AND created_at >= ? AND created_at <= ?", uint(userId.(float64)), uint(userId.(float64)), weekStart, weekEnd).
+		Select("COALESCE(SUM(split_amt), 0)").Scan(&spentAmt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if err := database.Db.Model(&models.Split{}).
+		Where("owed_to_id = ? AND owed_by_id != ? AND is_paid = ? AND created_at >= ? AND created_at <= ?", uint(userId.(float64)), uint(userId.(float64)), false, weekStart, weekEnd).
+		Select("COALESCE(SUM(split_amt), 0)").Scan(&owedToAmt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if err := database.Db.Model(&models.Split{}).
+		Where("owed_by_id = ? AND owed_to_id != ? AND is_paid = ? AND created_at >= ? AND created_at <= ?", uint(userId.(float64)), uint(userId.(float64)), false, weekStart, weekEnd).
+		Select("COALESCE(SUM(split_amt), 0)").Scan(&owedByAmt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	response := dto.MonthlyExpenseResponseDto{
+		Month:        request.Month,
+		Year:         request.Year,
+		SpentAmout:   spentAmt,
+		OwedToAmount: owedToAmt,
+		OwedByAmount: owedByAmt,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Monthly expenses fetched successfully", "data": response})
+}
+
+func GetDailyExpenses(c *gin.Context) {
+	var request dto.DailyExpenseRequestDto
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+		return
+	}
+
+	var spentAmt float64
+	var owedByAmt float64
+	var owedToAmt float64
+	location := c.MustGet("location").(string)
+	loc, _ := time.LoadLocation(location)
+	date := time.Date(request.Year, time.Month(request.Month), request.Day, 0, 0, 0, 0, loc)
+
+	if err := database.Db.Model(&models.Split{}).
+		Where("owed_by_id = ? AND owed_to_id = ? AND DATE(created_at) = ?", uint(userId.(float64)), uint(userId.(float64)), date).
+		Select("COALESCE(SUM(split_amt), 0)").Scan(&spentAmt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if err := database.Db.Model(&models.Split{}).
+		Where("owed_to_id = ? AND owed_by_id != ? AND is_paid = ? AND DATE(created_at) = ?", uint(userId.(float64)), uint(userId.(float64)), false, date).
+		Select("COALESCE(SUM(split_amt), 0)").Scan(&owedToAmt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	if err := database.Db.Model(&models.Split{}).
+		Where("owed_by_id = ? AND owed_to_id != ? AND is_paid = ? AND DATE(created_at) = ?", uint(userId.(float64)), uint(userId.(float64)), false, date).
+		Select("COALESCE(SUM(split_amt), 0)").Scan(&owedByAmt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	response := dto.MonthlyExpenseResponseDto{
+		Month:        request.Month,
+		Year:         request.Year,
+		SpentAmout:   spentAmt,
+		OwedToAmount: owedToAmt,
+		OwedByAmount: owedByAmt,
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Daily expenses fetched successfully", "data": response})
 }

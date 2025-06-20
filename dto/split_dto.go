@@ -57,3 +57,33 @@ type MonthlyExpenseResponseDto struct {
 	OwedToAmount float64 `json:"owed_to_amount"`
 	OwedByAmount float64 `json:"owed_by_amount"`
 }
+
+type WeeklyExpenseRequestDto struct {
+	Week  int `json:"week"`
+	Month int `json:"month"`
+	Year  int `json:"year"`
+}
+
+type WeeklyExpenseResponseDto struct {
+	Week         int     `json:"week"`
+	Month        int     `json:"month"`
+	Year         int     `json:"year"`
+	SpentAmout   float64 `json:"spent_amount"`
+	OwedToAmount float64 `json:"owed_to_amount"`
+	OwedByAmount float64 `json:"owed_by_amount"`
+}
+
+type DailyExpenseRequestDto struct {
+	Day   int `json:"day"`
+	Month int `json:"month"`
+	Year  int `json:"year"`
+}
+
+type DailyExpenseResponseDto struct {
+	Day          int     `json:"day"`
+	Month        int     `json:"month"`
+	Year         int     `json:"year"`
+	SpentAmout   float64 `json:"spent_amount"`
+	OwedToAmount float64 `json:"owed_to_amount"`
+	OwedByAmount float64 `json:"owed_by_amount"`
+}
