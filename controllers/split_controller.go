@@ -466,7 +466,7 @@ func GetDailyExpenses(c *gin.Context) {
 	var spentAmt float64
 	var owedByAmt float64
 	var owedToAmt float64
-	location := c.MustGet("location").(string)
+	location := "Asia/Kolkata"
 	loc, _ := time.LoadLocation(location)
 	date := time.Date(request.Year, time.Month(request.Month), request.Day, 0, 0, 0, 0, loc)
 
