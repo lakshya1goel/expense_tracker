@@ -414,8 +414,7 @@ func GetWeeklyExpenses(c *gin.Context) {
 	var spentAmt float64
 	var owedByAmt float64
 	var owedToAmt float64
-	location := c.MustGet("location").(string)
-	loc, _ := time.LoadLocation(location)
+	loc, _ := time.LoadLocation("Asia/Kolkata")
 	weekStart := time.Date(request.Year, time.Month(request.Month), request.Week, 0, 0, 0, 0, loc)
 	weekEnd := weekStart.AddDate(0, 0, 6)
 
